@@ -1,6 +1,6 @@
 # Visão Geral & Arquitetura — taskmgr
 
-**taskmgr** (`v0.3.0`, pacote `com.jovij.taskmgr`) é um aplicativo nativo Android (Kotlin + Jetpack Compose + Material 3 + Jetpack Glance) projetado para gerenciamento de tarefas, hábitos com unidades customizadas, janelas temporais ("Momentos"), detector inteligente de linguagem natural em títulos, widgets interativos na tela inicial, lembretes persistentes em tela cheia sobre a tela bloqueada e interoperabilidade via GitHub Flavored Markdown e Google/Android Agenda.
+**taskmgr** (`v0.3.1`, pacote `com.jovij.taskmgr`) é um aplicativo nativo Android (Kotlin + Jetpack Compose + Material 3 + Jetpack Glance) projetado para gerenciamento de tarefas, hábitos com unidades customizadas, janelas temporais ("Momentos"), detector inteligente de linguagem natural em títulos, widgets interativos na tela inicial, lembretes persistentes em tela cheia sobre a tela bloqueada e interoperabilidade via GitHub Flavored Markdown e Google/Android Agenda.
 
 ---
 
