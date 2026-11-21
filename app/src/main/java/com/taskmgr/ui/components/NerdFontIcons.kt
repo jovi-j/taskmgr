@@ -429,7 +429,7 @@ object NerdIconCatalog {
 
         // Mente, Espiritualidade & Energia
         NerdIconOption("Meditação", "Mente", NerdIcons.Meditation, listOf("mindfulness", "respirar", "calma", "zen")),
-        NerdIconOption("Cérebro / Foco", "Mente", NerdIcons.Brain, listOf("tdah", "memoria", "mente", "psicologia")),
+        NerdIconOption("Cérebro / Foco", "Mente", NerdIcons.Brain, listOf("concentracao", "memoria", "mente", "psicologia")),
         NerdIconOption("Oração / Gratidão", "Mente", NerdIcons.Prayer, listOf("rezar", "espiritualidade", "agradecer")),
         NerdIconOption("Vela / Relaxar", "Mente", NerdIcons.Candle, listOf("calma", "ritual", "aroma")),
         NerdIconOption("Fogueira / Acampar", "Mente", NerdIcons.Campfire, listOf("fogo", "natureza", "calma")),

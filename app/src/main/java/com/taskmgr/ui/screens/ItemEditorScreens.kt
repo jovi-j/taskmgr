@@ -471,7 +471,7 @@ fun TaskEditorScreen(
                 )
             }
 
-            EditorSectionCard(title = "Alertas (TDAH)", glyph = NerdIcons.BellAlert) {
+            EditorSectionCard(title = "Alertas", glyph = NerdIcons.BellAlert) {
                 EditorSwitchRow(
                     glyph = NerdIcons.BellAlert,
                     label = "Alarme em tela cheia",
@@ -1082,7 +1082,7 @@ fun HabitEditorScreen(
 
                 EditorSwitchRow(
                     glyph = NerdIcons.BellAlert,
-                    label = "Alarme em tela cheia (TDAH)",
+                    label = "Alarme em tela cheia",
                     checked = aggressiveFullScreen,
                     onCheckedChange = { aggressiveFullScreen = it }
                 )

@@ -297,7 +297,7 @@ private fun PermissionAlertBanner(
             }
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Falta conceder: ${missing.joinToString(", ")}. Sem isso o alarme TDAH pode não abrir sobre a tela bloqueada.",
+                text = "Falta conceder: ${missing.joinToString(", ")}. Sem isso o alarme pode não abrir sobre a tela bloqueada.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onErrorContainer
             )

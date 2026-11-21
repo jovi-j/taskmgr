@@ -27,7 +27,7 @@ enum class VibrationPattern(
         repeatIndex = 0
     ),
     URGENT(
-        displayName = "Intenso (TDAH)",
+        displayName = "Intenso",
         timings = longArrayOf(0, 500, 150, 500, 150, 700, 400),
         amplitudes = intArrayOf(0, 255, 0, 255, 0, 255, 0),
         repeatIndex = 0

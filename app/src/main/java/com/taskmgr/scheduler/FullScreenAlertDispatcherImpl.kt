@@ -37,7 +37,7 @@ class FullScreenAlertDispatcherImpl(
 
             val fullScreenChannel = NotificationChannel(
                 CHANNEL_FULL_SCREEN_ALARM,
-                "Alarmes em Tela Cheia (TDAH)",
+                "Alarmes em Tela Cheia",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "Lembretes críticos em tela cheia sobre a tela de bloqueio"

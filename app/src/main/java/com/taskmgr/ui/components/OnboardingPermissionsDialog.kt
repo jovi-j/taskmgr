@@ -64,7 +64,7 @@ fun OnboardingPermissionsDialog(
                     modifier = Modifier.size(30.dp)
                 )
                 Text(
-                    text = "Configuração Crítica (TDAH)",
+                    text = "Configuração de Permissões",
                     fontWeight = FontWeight.Bold
                 )
             }
