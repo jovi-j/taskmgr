@@ -4,7 +4,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import com.example.taskmgr.ui.theme.TaskmgrTheme
+import com.jovij.taskmgr.ui.theme.TaskmgrTheme
 import com.taskmgr.domain.model.ReminderItemType
 import com.taskmgr.domain.model.SnoozeOption
 import com.taskmgr.ui.fullscreen.FullScreenReminderScreen

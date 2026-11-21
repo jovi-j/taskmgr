@@ -53,16 +53,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.example.taskmgr.ui.theme.IndigoContainer
-import com.example.taskmgr.ui.theme.IndigoOnContainer
-import com.example.taskmgr.ui.theme.IndigoPrimary
-import com.example.taskmgr.ui.theme.OledBackground
-import com.example.taskmgr.ui.theme.OledBorder
-import com.example.taskmgr.ui.theme.OledSurface
-import com.example.taskmgr.ui.theme.OledSurfaceElevated
-import com.example.taskmgr.ui.theme.TaskCompleted
-import com.example.taskmgr.ui.theme.TextPrimary
-import com.example.taskmgr.ui.theme.TextSecondary
+import com.jovij.taskmgr.ui.theme.IndigoContainer
+import com.jovij.taskmgr.ui.theme.IndigoOnContainer
+import com.jovij.taskmgr.ui.theme.IndigoPrimary
+import com.jovij.taskmgr.ui.theme.OledBackground
+import com.jovij.taskmgr.ui.theme.OledBorder
+import com.jovij.taskmgr.ui.theme.OledSurface
+import com.jovij.taskmgr.ui.theme.OledSurfaceElevated
+import com.jovij.taskmgr.ui.theme.TaskCompleted
+import com.jovij.taskmgr.ui.theme.TextPrimary
+import com.jovij.taskmgr.ui.theme.TextSecondary
 import com.taskmgr.domain.model.Task
 import com.taskmgr.domain.model.TaskUrgency
 import com.taskmgr.ui.components.DatePickerModalDialog
@@ -98,18 +98,24 @@ fun EisenhowerMatrixScreen(
     onDeleteTask: (Long) -> Unit = {},
     onTestTaskAlarm: (Task) -> Unit = {}
 ) {
-    val tasksByUrgency = remember(tasks) {
+    val todayEpochDay = remember { LocalDate.now().toEpochDay() }
+
+    val visibleTasks = remember(tasks, todayEpochDay) {
+        tasks.filter { task -> task.shouldShowInEisenhowerMatrix(todayEpochDay) }
+    }
+
+    val tasksByUrgency = remember(visibleTasks) {
         val comparator = compareBy<Task> { it.isCompleted }
             .thenBy { if (it.hasDate) it.startEpochDay else Long.MAX_VALUE }
             .thenBy { it.scheduledMinutesOfDay ?: Int.MAX_VALUE }
             .thenBy { it.id }
         TaskUrgency.entries.associateWith { urgency ->
-            tasks.filter { it.urgency == urgency }.sortedWith(comparator)
+            visibleTasks.filter { it.urgency == urgency }.sortedWith(comparator)
         }
     }
 
-    val unscheduledInboxTasks = remember(tasks) {
-        tasks.filter { !it.isCompleted && it.isUnscheduledInbox }
+    val unscheduledInboxTasks = remember(visibleTasks) {
+        visibleTasks.filter { !it.isCompleted && it.isUnscheduledInbox }
             .sortedBy { it.id }
     }
 

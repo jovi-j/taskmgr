@@ -119,6 +119,7 @@ data class Task(
     val aggressiveFullScreen: Boolean = true,
     val vibrationEnabled: Boolean = true,
     val isCompleted: Boolean = false,
+    val completedAtEpochMillis: Long? = null,
     val snoozedUntilEpochMillis: Long? = null,
     val urgency: TaskUrgency = TaskUrgency.LOW,
     val advanceReminders: List<TaskAdvanceReminder> = emptyList()
@@ -128,6 +129,28 @@ data class Task(
 
     val isUnscheduledInbox: Boolean
         get() = !hasDate && scheduledMinutesOfDay == null
+
+    fun isCompletedOnDay(
+        epochDay: Long,
+        zoneId: java.time.ZoneId = java.time.ZoneId.systemDefault()
+    ): Boolean {
+        if (!isCompleted) return false
+        val completedMillis = completedAtEpochMillis
+        return if (completedMillis != null && completedMillis > 0L) {
+            val completedDay = java.time.Instant.ofEpochMilli(completedMillis)
+                .atZone(zoneId)
+                .toLocalDate()
+                .toEpochDay()
+            completedDay == epochDay
+        } else {
+            hasDate && epochDay in startEpochDay..endEpochDay
+        }
+    }
+
+    fun shouldShowInEisenhowerMatrix(
+        todayEpochDay: Long,
+        zoneId: java.time.ZoneId = java.time.ZoneId.systemDefault()
+    ): Boolean = !isCompleted || isCompletedOnDay(todayEpochDay, zoneId)
 
     companion object {
         const val UNSCHEDULED_EPOCH_DAY: Long = -1L

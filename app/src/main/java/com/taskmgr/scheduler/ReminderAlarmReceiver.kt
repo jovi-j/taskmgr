@@ -4,7 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.PowerManager
-import com.example.taskmgr.TaskMgrApplication
+import com.jovij.taskmgr.TaskMgrApplication
 import com.taskmgr.data.local.toDomain
 import com.taskmgr.data.local.toEntity
 import com.taskmgr.domain.logic.HabitCompletionCalculator

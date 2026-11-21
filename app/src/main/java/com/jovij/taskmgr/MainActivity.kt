@@ -1,4 +1,4 @@
-package com.example.taskmgr
+package com.jovij.taskmgr
 
 import android.graphics.Color
 import android.os.Bundle
@@ -7,7 +7,7 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.taskmgr.ui.theme.TaskmgrTheme
+import com.jovij.taskmgr.ui.theme.TaskmgrTheme
 import com.taskmgr.ui.MainScreen
 import com.taskmgr.ui.viewmodel.TaskMgrViewModel
 

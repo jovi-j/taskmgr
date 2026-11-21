@@ -28,14 +28,14 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.taskmgr.R
-import com.example.taskmgr.ui.theme.IndigoContainer
-import com.example.taskmgr.ui.theme.IndigoPrimary
-import com.example.taskmgr.ui.theme.OledBorder
-import com.example.taskmgr.ui.theme.OledSurface
-import com.example.taskmgr.ui.theme.OledSurfaceElevated
-import com.example.taskmgr.ui.theme.PriorityHigh
-import com.example.taskmgr.ui.theme.TaskCompleted
+import com.jovij.taskmgr.R
+import com.jovij.taskmgr.ui.theme.IndigoContainer
+import com.jovij.taskmgr.ui.theme.IndigoPrimary
+import com.jovij.taskmgr.ui.theme.OledBorder
+import com.jovij.taskmgr.ui.theme.OledSurface
+import com.jovij.taskmgr.ui.theme.OledSurfaceElevated
+import com.jovij.taskmgr.ui.theme.PriorityHigh
+import com.jovij.taskmgr.ui.theme.TaskCompleted
 import com.taskmgr.scheduler.AppPermissionStatus
 
 @Composable

@@ -1,4 +1,4 @@
-package com.example.taskmgr.ui.theme
+package com.jovij.taskmgr.ui.theme
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable

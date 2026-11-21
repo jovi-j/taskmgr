@@ -1,4 +1,4 @@
-package com.example.taskmgr.ui.theme
+package com.jovij.taskmgr.ui.theme
 
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.ui.graphics.Color

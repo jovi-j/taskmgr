@@ -40,10 +40,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.taskmgr.ui.theme.IndigoPrimary
-import com.example.taskmgr.ui.theme.OledSurface
-import com.example.taskmgr.ui.theme.OledSurfaceElevated
-import com.example.taskmgr.ui.theme.UbuntuSansMonoNerdFontFamily
+import com.jovij.taskmgr.ui.theme.IndigoPrimary
+import com.jovij.taskmgr.ui.theme.OledSurface
+import com.jovij.taskmgr.ui.theme.OledSurfaceElevated
+import com.jovij.taskmgr.ui.theme.UbuntuSansMonoNerdFontFamily
 import com.taskmgr.domain.logic.DaysOfWeekMask
 import com.taskmgr.domain.logic.MomentWindowEvaluator
 import com.taskmgr.domain.model.Habit

@@ -38,15 +38,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.taskmgr.ui.theme.IndigoContainer
-import com.example.taskmgr.ui.theme.IndigoOnPrimary
-import com.example.taskmgr.ui.theme.IndigoPrimary
-import com.example.taskmgr.ui.theme.OledBorder
-import com.example.taskmgr.ui.theme.OledSurface
-import com.example.taskmgr.ui.theme.OledSurfaceElevated
-import com.example.taskmgr.ui.theme.TextPrimary
-import com.example.taskmgr.ui.theme.TextSecondary
-import com.example.taskmgr.ui.theme.UbuntuSansMonoNerdFontFamily
+import com.jovij.taskmgr.ui.theme.IndigoContainer
+import com.jovij.taskmgr.ui.theme.IndigoOnPrimary
+import com.jovij.taskmgr.ui.theme.IndigoPrimary
+import com.jovij.taskmgr.ui.theme.OledBorder
+import com.jovij.taskmgr.ui.theme.OledSurface
+import com.jovij.taskmgr.ui.theme.OledSurfaceElevated
+import com.jovij.taskmgr.ui.theme.TextPrimary
+import com.jovij.taskmgr.ui.theme.TextSecondary
+import com.jovij.taskmgr.ui.theme.UbuntuSansMonoNerdFontFamily
 
 @Composable
 fun TimeSelectorField(

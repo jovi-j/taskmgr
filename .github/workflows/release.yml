@@ -40,16 +40,16 @@ jobs:
             ## taskmgr ${{ github.ref_name }}
 
             ### Destaques desta versão
-            - **Matriz de Eisenhower 2x2 & Planejar o Dia:**
-              - Visualização em 4 quadrantes (Importante e Urgente - Vermelho, Importante e Não Urgente - Amarelo, Não Importante e Urgente - Verde, Não Importante e Não Urgente - Azul).
-              - Tarefas sem obrigatoriedade de data e horário (Caixa de entrada em Urgência Baixa por padrão, ou na urgência do quadrante clicado).
-              - Modal **"Planejar o dia"** na Matriz para revisar e delegar tarefas sem data/hora para uma data e quadrante específicos.
-            - **Lembretes Antecipados Customizáveis para Tarefas:**
-              - Configuração de múltiplos lembretes X tempo antes do horário do evento (dias, horas, minutos antes e frequência de repetição).
-              - Notificação de tela inteira para tarefas apenas com a opção **"Sim"** (sem opções de soneca), mantendo o usuário ciente da chegada do evento.
-            - **Interface Focus OLED Dark (`#000000`)** com Jetpack Compose, Material 3, transições animadas e fontes Ubuntu Sans Nerd Font.
-            - **Exportação, Sincronização e Importação:**
-              - Sincronização de tarefas agendadas com o Google Agenda / Calendário do Android.
-              - Backup e restauração completa via `.taskmgr.md` e checklists GFM (`.md`) para Notion e Obsidian.
+            - **Novo pacote exclusivo (`com.jovij.taskmgr`):**
+              - Migração do pacote/applicationId de `com.example.taskmgr` para `com.jovij.taskmgr`, eliminando conflitos de pacotes existentes em dispositivos Xiaomi (MIUI/HyperOS) e outros fabricantes.
+            - **Matriz de Eisenhower mais limpa ao longo do tempo:**
+              - Apenas tarefas ainda não concluídas e tarefas concluídas hoje são exibidas nos quadrantes da Matriz.
+              - Tarefas concluídas em dias anteriores permanecem registradas e consultáveis normalmente na tela de **Calendário**.
+            - **Tela de Configurações & Sobre:**
+              - Removido o subtítulo com versão hardcoded e autoria do item **Sobre** no menu de Configurações.
+              - A tela **Sobre** exibe dinamicamente a versão instalada do aplicativo.
+            - **Matriz de Eisenhower 2x2, Planejar o Dia & Lembretes Antecipados:**
+              - Visualização em 4 quadrantes com criação direta respeitando a urgência do quadrante.
+              - Tarefas com data e horário opcionais, modal **"Planejar o dia"** para delegar a Caixa de entrada e múltiplos lembretes antecipados customizáveis com notificação de tela inteira.
           files: |
             taskmgr-${{ github.ref_name }}.apk

@@ -57,15 +57,15 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.taskmgr.R
-import com.example.taskmgr.ui.theme.IndigoContainer
-import com.example.taskmgr.ui.theme.IndigoPrimary
-import com.example.taskmgr.ui.theme.OledBorder
-import com.example.taskmgr.ui.theme.OledSurface
-import com.example.taskmgr.ui.theme.PriorityHigh
-import com.example.taskmgr.ui.theme.TaskCompleted
-import com.example.taskmgr.ui.theme.TextPrimary
-import com.example.taskmgr.ui.theme.TextSecondary
+import com.jovij.taskmgr.R
+import com.jovij.taskmgr.ui.theme.IndigoContainer
+import com.jovij.taskmgr.ui.theme.IndigoPrimary
+import com.jovij.taskmgr.ui.theme.OledBorder
+import com.jovij.taskmgr.ui.theme.OledSurface
+import com.jovij.taskmgr.ui.theme.PriorityHigh
+import com.jovij.taskmgr.ui.theme.TaskCompleted
+import com.jovij.taskmgr.ui.theme.TextPrimary
+import com.jovij.taskmgr.ui.theme.TextSecondary
 import com.taskmgr.scheduler.AppPermissionStatus
 import com.taskmgr.scheduler.VibrationPattern
 import com.taskmgr.ui.components.NerdIcon
@@ -375,7 +375,7 @@ private fun SettingsMenuScreen(
             SettingsMenuButtonCard(
                 iconGlyph = NerdIcons.CodeTags,
                 title = SettingsSection.ABOUT.title,
-                subtitle = "Versão 0.0.3 • Criado por Jovi",
+                subtitle = null,
                 onClick = { onSelectSection(SettingsSection.ABOUT) }
             )
         }
@@ -386,7 +386,7 @@ private fun SettingsMenuScreen(
 private fun SettingsMenuButtonCard(
     iconGlyph: String,
     title: String,
-    subtitle: String,
+    subtitle: String? = null,
     trailingStatusGlyph: String? = null,
     trailingStatusSuccess: Boolean = true,
     onClick: () -> Unit
@@ -418,12 +418,14 @@ private fun SettingsMenuButtonCard(
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary
                 )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = TextSecondary
-                )
+                if (!subtitle.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary
+                    )
+                }
             }
             if (trailingStatusGlyph != null) {
                 NerdIcon(
@@ -541,6 +543,11 @@ private fun VibrationSettingsCard(
 private fun AboutSettingsCard() {
     val context = LocalContext.current
     val githubUrl = "https://github.com/jovi-j/"
+    val appVersionName = androidx.compose.runtime.remember(context) {
+        runCatching {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName
+        }.getOrNull().orEmpty().ifBlank { "0.2.2" }
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -571,7 +578,7 @@ private fun AboutSettingsCard() {
                         color = TextPrimary
                     )
                     Text(
-                        text = "Versão 0.1.0",
+                        text = "Versão $appVersionName",
                         style = MaterialTheme.typography.bodyMedium,
                         color = IndigoPrimary,
                         fontWeight = FontWeight.SemiBold

@@ -1,4 +1,4 @@
-package com.example.taskmgr.ui.theme
+package com.jovij.taskmgr.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
@@ -7,7 +7,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import com.example.taskmgr.R
+import com.jovij.taskmgr.R
 
 val UbuntuSansNerdFontFamily = FontFamily(
     Font(R.font.ubuntu_sans_nerd_regular, FontWeight.Normal, FontStyle.Normal),
