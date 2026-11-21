@@ -5,17 +5,17 @@ plugins {
 }
 
 android {
-    namespace = "com.example.taskmgr"
+    namespace = "com.jovij.taskmgr"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "com.example.taskmgr"
+        applicationId = "com.jovij.taskmgr"
         minSdk = 24
         targetSdk = 37
-        versionCode = 6
-        versionName = "0.2.1"
+        versionCode = 7
+        versionName = "0.2.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

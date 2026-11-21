@@ -40,6 +40,8 @@ jobs:
             ## taskmgr ${{ github.ref_name }}
 
             ### Destaques desta versão
+            - **Novo pacote exclusivo (`com.jovij.taskmgr`):**
+              - Migração do pacote/applicationId de `com.example.taskmgr` para `com.jovij.taskmgr`, eliminando conflitos de pacotes existentes em dispositivos Xiaomi (MIUI/HyperOS) e outros fabricantes.
             - **Matriz de Eisenhower mais limpa ao longo do tempo:**
               - Apenas tarefas ainda não concluídas e tarefas concluídas hoje são exibidas nos quadrantes da Matriz.
               - Tarefas concluídas em dias anteriores permanecem registradas e consultáveis normalmente na tela de **Calendário**.
