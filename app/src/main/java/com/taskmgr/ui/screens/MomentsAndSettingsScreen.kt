@@ -57,15 +57,15 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.taskmgr.R
-import com.example.taskmgr.ui.theme.IndigoContainer
-import com.example.taskmgr.ui.theme.IndigoPrimary
-import com.example.taskmgr.ui.theme.OledBorder
-import com.example.taskmgr.ui.theme.OledSurface
-import com.example.taskmgr.ui.theme.PriorityHigh
-import com.example.taskmgr.ui.theme.TaskCompleted
-import com.example.taskmgr.ui.theme.TextPrimary
-import com.example.taskmgr.ui.theme.TextSecondary
+import com.jovij.taskmgr.R
+import com.jovij.taskmgr.ui.theme.IndigoContainer
+import com.jovij.taskmgr.ui.theme.IndigoPrimary
+import com.jovij.taskmgr.ui.theme.OledBorder
+import com.jovij.taskmgr.ui.theme.OledSurface
+import com.jovij.taskmgr.ui.theme.PriorityHigh
+import com.jovij.taskmgr.ui.theme.TaskCompleted
+import com.jovij.taskmgr.ui.theme.TextPrimary
+import com.jovij.taskmgr.ui.theme.TextSecondary
 import com.taskmgr.scheduler.AppPermissionStatus
 import com.taskmgr.scheduler.VibrationPattern
 import com.taskmgr.ui.components.NerdIcon
@@ -546,7 +546,7 @@ private fun AboutSettingsCard() {
     val appVersionName = androidx.compose.runtime.remember(context) {
         runCatching {
             context.packageManager.getPackageInfo(context.packageName, 0).versionName
-        }.getOrNull().orEmpty().ifBlank { "0.2.1" }
+        }.getOrNull().orEmpty().ifBlank { "0.2.2" }
     }
 
     Card(

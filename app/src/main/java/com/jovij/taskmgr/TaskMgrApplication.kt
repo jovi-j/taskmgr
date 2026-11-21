@@ -1,4 +1,4 @@
-package com.example.taskmgr
+package com.jovij.taskmgr
 
 import android.app.Application
 import com.taskmgr.di.AppContainer

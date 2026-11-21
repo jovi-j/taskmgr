@@ -211,7 +211,7 @@ interface FullScreenAlertDispatcher {
 }
 ```
 
-## 4. Sistema Visual & Paleta OLED (`com.example.taskmgr.ui.theme`)
+## 4. Sistema Visual & Paleta OLED (`com.jovij.taskmgr.ui.theme`)
 - `OledBackground`: `#000000` (Fundo principal OLED)
 - `OledSurface`: `#0E1117` (Superfície 1 — Cartões de tarefas, hábitos e inputs)
 - `OledSurfaceElevated`: `#161B26` (Superfície 2 — Modais, diálogos e menus)

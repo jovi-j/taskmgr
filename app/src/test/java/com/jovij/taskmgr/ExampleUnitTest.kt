@@ -1,4 +1,4 @@
-package com.example.taskmgr
+package com.jovij.taskmgr
 
 import org.junit.Test
 

@@ -6,7 +6,7 @@
 
 ## 1. Estrutura de Pacotes
 
-- **`com.example.taskmgr`** (`app/src/main/java/com/example/taskmgr`):
+- **`com.jovij.taskmgr`** (`app/src/main/java/com/jovij/taskmgr`):
     - `TaskMgrApplication.kt`: Inicializa o container de dependências (`AppContainer`) e canais de notificação.
     - `MainActivity.kt`: Ponto de entrada Compose com suporte a tema escuro OLED.
     - `ui.theme`: Paleta OLED (`Color.kt`), tipografia com fontes Nerd Font (`Type.kt`) e esquema Material 3 (`Theme.kt`).

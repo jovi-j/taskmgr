@@ -12,7 +12,7 @@ import android.media.RingtoneManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import com.example.taskmgr.R
+import com.jovij.taskmgr.R
 import com.taskmgr.domain.contract.FullScreenAlertDispatcher
 import com.taskmgr.domain.model.FullScreenReminderPayload
 import com.taskmgr.domain.model.ReminderItemType

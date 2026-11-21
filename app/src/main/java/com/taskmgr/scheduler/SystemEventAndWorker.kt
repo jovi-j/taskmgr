@@ -10,7 +10,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import com.example.taskmgr.TaskMgrApplication
+import com.jovij.taskmgr.TaskMgrApplication
 import java.util.concurrent.TimeUnit
 
 class ReconcileAlarmsWorker(
