@@ -98,18 +98,24 @@ fun EisenhowerMatrixScreen(
     onDeleteTask: (Long) -> Unit = {},
     onTestTaskAlarm: (Task) -> Unit = {}
 ) {
-    val tasksByUrgency = remember(tasks) {
+    val todayEpochDay = remember { LocalDate.now().toEpochDay() }
+
+    val visibleTasks = remember(tasks, todayEpochDay) {
+        tasks.filter { task -> task.shouldShowInEisenhowerMatrix(todayEpochDay) }
+    }
+
+    val tasksByUrgency = remember(visibleTasks) {
         val comparator = compareBy<Task> { it.isCompleted }
             .thenBy { if (it.hasDate) it.startEpochDay else Long.MAX_VALUE }
             .thenBy { it.scheduledMinutesOfDay ?: Int.MAX_VALUE }
             .thenBy { it.id }
         TaskUrgency.entries.associateWith { urgency ->
-            tasks.filter { it.urgency == urgency }.sortedWith(comparator)
+            visibleTasks.filter { it.urgency == urgency }.sortedWith(comparator)
         }
     }
 
-    val unscheduledInboxTasks = remember(tasks) {
-        tasks.filter { !it.isCompleted && it.isUnscheduledInbox }
+    val unscheduledInboxTasks = remember(visibleTasks) {
+        visibleTasks.filter { !it.isCompleted && it.isUnscheduledInbox }
             .sortedBy { it.id }
     }
 

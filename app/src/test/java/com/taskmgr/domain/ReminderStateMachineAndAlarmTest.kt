@@ -275,4 +275,37 @@ class ReminderStateMachineAndAlarmTest {
         )
         assertNull(NextAlarmCalculator.calculateNextForTask(unscheduled, null, t0, zone))
     }
+
+    @Test
+    fun eisenhowerMatrixVisibility_showsPendingAndCompletedToday_hidesCompletedOnOtherDays() {
+        val pendingPastTask = Task(
+            id = 101L,
+            title = "Tarefa pendente de ontem",
+            startEpochDay = todayEpochDay - 1,
+            endEpochDay = todayEpochDay - 1,
+            isCompleted = false
+        )
+        val completedTodayTask = Task(
+            id = 102L,
+            title = "Tarefa concluída hoje",
+            startEpochDay = todayEpochDay - 1,
+            endEpochDay = todayEpochDay - 1,
+            isCompleted = true,
+            completedAtEpochMillis = t0 // today 10:00 UTC
+        )
+        val yesterdayMillis = ZonedDateTime.of(today.minusDays(1), LocalTime.of(18, 0), zone)
+            .toInstant().toEpochMilli()
+        val completedYesterdayTask = Task(
+            id = 103L,
+            title = "Tarefa concluída ontem",
+            startEpochDay = todayEpochDay - 1,
+            endEpochDay = todayEpochDay - 1,
+            isCompleted = true,
+            completedAtEpochMillis = yesterdayMillis
+        )
+
+        assertTrue(pendingPastTask.shouldShowInEisenhowerMatrix(todayEpochDay, zone))
+        assertTrue(completedTodayTask.shouldShowInEisenhowerMatrix(todayEpochDay, zone))
+        assertFalse(completedYesterdayTask.shouldShowInEisenhowerMatrix(todayEpochDay, zone))
+    }
 }

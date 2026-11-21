@@ -105,13 +105,14 @@ fun TaskEntity.toDomain(): Task {
         aggressiveFullScreen = aggressiveFullScreen,
         vibrationEnabled = vibrationEnabled,
         isCompleted = isCompleted,
+        completedAtEpochMillis = completedAtEpochMillis,
         snoozedUntilEpochMillis = snoozedUntilEpochMillis,
         urgency = parsedUrgency,
         advanceReminders = parseAdvanceRemindersSpec(advanceRemindersSpec)
     )
 }
 
-fun Task.toEntity(completedAtEpochMillis: Long? = null): TaskEntity {
+fun Task.toEntity(completedAtEpochMillis: Long? = this.completedAtEpochMillis): TaskEntity {
     return TaskEntity(
         id = id,
         title = title,
@@ -124,7 +125,7 @@ fun Task.toEntity(completedAtEpochMillis: Long? = null): TaskEntity {
         vibrationEnabled = vibrationEnabled,
         repeatIntervalMinutes = repeatIntervalMinutes,
         isCompleted = isCompleted,
-        completedAtEpochMillis = completedAtEpochMillis,
+        completedAtEpochMillis = if (isCompleted) completedAtEpochMillis else null,
         snoozedUntilEpochMillis = snoozedUntilEpochMillis,
         urgency = urgency.name,
         advanceRemindersSpec = serializeAdvanceRemindersSpec(advanceReminders)
