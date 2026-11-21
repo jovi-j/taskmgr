@@ -1,8 +1,6 @@
 package com.taskmgr.ui.screens
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -100,6 +98,16 @@ import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+private val CALENDAR_LOCALE_PT_BR: Locale = Locale.forLanguageTag("pt-BR")
+private val MONTH_YEAR_FORMATTER: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("MMMM yyyy", CALENDAR_LOCALE_PT_BR)
+private val DD_MM_YYYY_CALENDAR_FORMATTER: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("dd/MM/yyyy")
+private val DAY_DETAIL_HEADER_FORMATTER: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("EEEE, dd 'de' MMMM", CALENDAR_LOCALE_PT_BR)
+private val WEEKDAY_SHORT_LABELS: List<String> =
+    listOf("Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom")
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CalendarScreen(
@@ -114,8 +122,7 @@ fun CalendarScreen(
     onIncludeHabitFromPastDay: (Habit, Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val todayEpochDay = LocalDate.now().toEpochDay()
-    val localePtBr = Locale.forLanguageTag("pt-BR")
+    val todayEpochDay = remember { LocalDate.now().toEpochDay() }
 
     Column(
         modifier = modifier
@@ -144,9 +151,9 @@ fun CalendarScreen(
                 },
                 label = "calendar_month_title_transition"
             ) { targetMonth ->
-                val monthTitle = targetMonth.format(
-                    DateTimeFormatter.ofPattern("MMMM yyyy", localePtBr)
-                ).replaceFirstChar { it.uppercase() }
+                val monthTitle = remember(targetMonth) {
+                    targetMonth.format(MONTH_YEAR_FORMATTER).replaceFirstChar { it.uppercase() }
+                }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -171,7 +178,7 @@ fun CalendarScreen(
         Spacer(modifier = Modifier.height(12.dp))
 
         Row(modifier = Modifier.fillMaxWidth()) {
-            listOf("Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom").forEach { label ->
+            WEEKDAY_SHORT_LABELS.forEach { label ->
                 Text(
                     text = label,
                     modifier = Modifier.weight(1f),
@@ -328,8 +335,9 @@ fun CalendarScreen(
 private fun HabitRetentionCard(item: HabitWithLog) {
     val habit = item.habit
     val stats = item.stats
-    val startFormatted = LocalDate.ofEpochDay(habit.startEpochDay)
-        .format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+    val startFormatted = remember(habit.startEpochDay) {
+        LocalDate.ofEpochDay(habit.startEpochDay).format(DD_MM_YYYY_CALENDAR_FORMATTER)
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -443,16 +451,8 @@ private fun CalendarDayCell(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val borderColor by animateColorAsState(
-        targetValue = if (isToday) IndigoPrimary else OledBorder,
-        animationSpec = tween(220),
-        label = "calendar_day_border"
-    )
-    val bgColor by animateColorAsState(
-        targetValue = if (isToday) IndigoContainer else OledSurface,
-        animationSpec = tween(220),
-        label = "calendar_day_bg"
-    )
+    val borderColor = if (isToday) IndigoPrimary else OledBorder
+    val bgColor = if (isToday) IndigoContainer else OledSurface
 
     Box(
         modifier = modifier
@@ -533,9 +533,11 @@ private fun DayDetailSheetContent(
     onIncludeHabitFromPastDay: (Habit, Long) -> Unit,
     onClose: () -> Unit
 ) {
-    val formattedDate = LocalDate.ofEpochDay(state.epochDay)
-        .format(DateTimeFormatter.ofPattern("EEEE, dd 'de' MMMM", Locale.forLanguageTag("pt-BR")))
-        .replaceFirstChar { it.uppercase() }
+    val formattedDate = remember(state.epochDay) {
+        LocalDate.ofEpochDay(state.epochDay)
+            .format(DAY_DETAIL_HEADER_FORMATTER)
+            .replaceFirstChar { it.uppercase() }
+    }
 
     var editingHabit by remember { mutableStateOf<HabitWithLog?>(null) }
 
@@ -588,7 +590,7 @@ private fun DayDetailSheetContent(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 if (state.habits.isNotEmpty()) {
-                    item {
+                    item(key = "detail_habits_header", contentType = "detail_header") {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -606,7 +608,11 @@ private fun DayDetailSheetContent(
                             )
                         }
                     }
-                    items(state.habits, key = { "detail_habit_${it.habit.id}" }) { item ->
+                    items(
+                        items = state.habits,
+                        key = { "detail_habit_${it.habit.id}" },
+                        contentType = { "detail_habit" }
+                    ) { item ->
                         RetroactiveHabitRow(
                             habitWithLog = item,
                             onSetAmount = { amount ->
@@ -618,7 +624,7 @@ private fun DayDetailSheetContent(
                 }
 
                 if (state.tasks.isNotEmpty()) {
-                    item {
+                    item(key = "detail_tasks_header", contentType = "detail_header") {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -636,7 +642,11 @@ private fun DayDetailSheetContent(
                             )
                         }
                     }
-                    items(state.tasks, key = { "detail_task_${it.id}" }) { task ->
+                    items(
+                        items = state.tasks,
+                        key = { "detail_task_${it.id}" },
+                        contentType = { "detail_task" }
+                    ) { task ->
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(14.dp),
@@ -668,7 +678,7 @@ private fun DayDetailSheetContent(
                 }
 
                 if (state.laterStartHabits.isNotEmpty()) {
-                    item {
+                    item(key = "detail_later_header", contentType = "detail_header") {
                         Spacer(modifier = Modifier.height(6.dp))
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -687,8 +697,15 @@ private fun DayDetailSheetContent(
                             )
                         }
                     }
-                    items(state.laterStartHabits, key = { "later_habit_${it.id}" }) { habit ->
+                    items(
+                        items = state.laterStartHabits,
+                        key = { "later_habit_${it.id}" },
+                        contentType = { "later_habit" }
+                    ) { habit ->
                         val group = habit.groupId?.let { state.habitGroupsById[it] }
+                        val formattedStart = remember(habit.startEpochDay) {
+                            LocalDate.ofEpochDay(habit.startEpochDay).format(DD_MM_YYYY_CALENDAR_FORMATTER)
+                        }
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(14.dp),
@@ -715,7 +732,7 @@ private fun DayDetailSheetContent(
                                         fontWeight = FontWeight.SemiBold
                                     )
                                     Text(
-                                        text = "Início atual: ${LocalDate.ofEpochDay(habit.startEpochDay).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}",
+                                        text = "Início atual: $formattedStart",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = TextSecondary
                                     )
@@ -730,7 +747,9 @@ private fun DayDetailSheetContent(
                     }
                 }
 
-                item { Spacer(modifier = Modifier.height(24.dp)) }
+                item(key = "detail_bottom_spacer", contentType = "spacer") {
+                    Spacer(modifier = Modifier.height(24.dp))
+                }
             }
         }
     }
@@ -773,9 +792,7 @@ private fun RetroactiveHabitRow(
     }
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .animateContentSize(tween(220, easing = FastOutSlowInEasing)),
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = OledSurface),
         border = BorderStroke(1.dp, OledBorder)

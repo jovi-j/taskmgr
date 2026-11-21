@@ -2,7 +2,7 @@
 
 Aplicativo Android nativo para gerenciamento de **Tarefas**, **Hábitos com unidades customizadas**, **Grupos de Hábitos**, **Momentos (janelas do dia)** e **Alarmes em Tela Cheia**, construído com **Kotlin**, **Jetpack Compose (Material 3 OLED Dark)** e **Room**.
 
-- **Versão:** `0.0.1`
+- **Versão:** `0.0.2`
 - **Criador:** [Jovi](https://github.com/jovi-j/)
 
 ---

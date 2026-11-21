@@ -3,7 +3,6 @@ package com.taskmgr.ui.screens
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -18,6 +17,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,11 +28,10 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
@@ -103,9 +102,7 @@ private fun EditorSectionCard(
     content: @Composable () -> Unit
 ) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .animateContentSize(animationSpec = tween(240, easing = FastOutSlowInEasing)),
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = OledSurface),
         border = BorderStroke(1.dp, OledBorder)
@@ -177,7 +174,216 @@ private fun EditorSwitchRow(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun EditorErrorBanner(errorMessage: String?) {
+    AnimatedVisibility(
+        visible = errorMessage != null,
+        enter = expandVertically(tween(200, easing = FastOutSlowInEasing)) + fadeIn(tween(160)),
+        exit = shrinkVertically(tween(160)) + fadeOut(tween(120))
+    ) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                NerdIcon(glyph = NerdIcons.AlertCircle, color = PriorityHigh, size = 18.sp)
+                Text(
+                    text = errorMessage.orEmpty(),
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TaskDetailsSection(
+    title: String,
+    notes: String,
+    onTitleChange: (String) -> Unit,
+    onNotesChange: (String) -> Unit
+) {
+    val textFieldColors = oledTextFieldColors()
+    EditorSectionCard(title = "Detalhes da Tarefa", glyph = NerdIcons.Pencil) {
+        OutlinedTextField(
+            value = title,
+            onValueChange = onTitleChange,
+            label = { Text("Título da tarefa") },
+            leadingIcon = { NerdIcon(glyph = NerdIcons.Pencil, size = 18.sp) },
+            singleLine = true,
+            colors = textFieldColors,
+            modifier = Modifier.fillMaxWidth()
+        )
+        OutlinedTextField(
+            value = notes,
+            onValueChange = onNotesChange,
+            label = { Text("Notas (opcional)") },
+            leadingIcon = { NerdIcon(glyph = NerdIcons.FormatListChecks, size = 18.sp) },
+            colors = textFieldColors,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TaskDateAndDurationSection(
+    startEpochDay: Long,
+    todayEpochDay: Long,
+    durationDaysText: String,
+    onOpenDatePicker: () -> Unit,
+    onSelectStartDay: (Long) -> Unit,
+    onDurationDaysChange: (String) -> Unit
+) {
+    EditorSectionCard(title = "Data e Duração", glyph = NerdIcons.Calendar) {
+        DateSelectorField(
+            label = "Data de início",
+            epochDay = startEpochDay,
+            onClick = onOpenDatePicker
+        )
+
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            FilterChip(
+                selected = startEpochDay == todayEpochDay - 1,
+                onClick = { onSelectStartDay(todayEpochDay - 1) },
+                label = { Text("Ontem") }
+            )
+            FilterChip(
+                selected = startEpochDay == todayEpochDay,
+                onClick = { onSelectStartDay(todayEpochDay) },
+                label = { Text("Hoje") }
+            )
+            FilterChip(
+                selected = startEpochDay == todayEpochDay + 1,
+                onClick = { onSelectStartDay(todayEpochDay + 1) },
+                label = { Text("Amanhã") }
+            )
+        }
+
+        OutlinedTextField(
+            value = durationDaysText,
+            onValueChange = { onDurationDaysChange(it.filter { c -> c.isDigit() }) },
+            label = { Text("Duração em dias (1..N)") },
+            leadingIcon = { NerdIcon(glyph = NerdIcons.CalendarToday, size = 18.sp) },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            singleLine = true,
+            colors = oledTextFieldColors(),
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TaskTimeAndMomentSection(
+    useExactTime: Boolean,
+    scheduledMinutes: Int,
+    moments: List<Moment>,
+    selectedMomentId: Long?,
+    repeatHoursText: String,
+    repeatMinutesText: String,
+    onUseExactTimeChange: (Boolean) -> Unit,
+    onOpenTimePicker: () -> Unit,
+    onSelectMomentId: (Long?) -> Unit,
+    onRepeatHoursChange: (String) -> Unit,
+    onRepeatMinutesChange: (String) -> Unit
+) {
+    EditorSectionCard(title = "Horário & Momento", glyph = NerdIcons.ClockOutline) {
+        EditorSwitchRow(
+            glyph = NerdIcons.ClockOutline,
+            label = "Horário exato",
+            subtitle = "Dispara no minuto configurado",
+            checked = useExactTime,
+            onCheckedChange = onUseExactTimeChange
+        )
+
+        AnimatedVisibility(
+            visible = useExactTime,
+            enter = expandVertically(tween(200, easing = FastOutSlowInEasing)) + fadeIn(tween(160)),
+            exit = shrinkVertically(tween(160)) + fadeOut(tween(120))
+        ) {
+            TimeSelectorField(
+                label = "Horário do lembrete",
+                minutesOfDay = scheduledMinutes,
+                onClick = onOpenTimePicker
+            )
+        }
+
+        if (moments.isNotEmpty()) {
+            Text(
+                text = "Momento associado (opcional)",
+                style = MaterialTheme.typography.labelLarge,
+                color = TextSecondary
+            )
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                FilterChip(
+                    selected = selectedMomentId == null,
+                    onClick = { onSelectMomentId(null) },
+                    label = { Text("Nenhum") }
+                )
+                moments.forEach { moment ->
+                    FilterChip(
+                        selected = selectedMomentId == moment.id,
+                        onClick = { onSelectMomentId(moment.id) },
+                        leadingIcon = {
+                            NerdIcon(
+                                glyph = momentNerdGlyph(moment.startMinutesOfDay),
+                                size = 14.sp
+                            )
+                        },
+                        label = { Text(moment.name) }
+                    )
+                }
+            }
+        }
+
+        RepeatIntervalHourMinuteFields(
+            hoursText = repeatHoursText,
+            minutesText = repeatMinutesText,
+            onHoursChange = onRepeatHoursChange,
+            onMinutesChange = onRepeatMinutesChange,
+            isOptional = true
+        )
+    }
+}
+
+@Composable
+private fun TaskAlertsSection(
+    aggressiveFullScreen: Boolean,
+    vibrationEnabled: Boolean,
+    onAggressiveFullScreenChange: (Boolean) -> Unit,
+    onVibrationEnabledChange: (Boolean) -> Unit
+) {
+    EditorSectionCard(title = "Alertas", glyph = NerdIcons.BellAlert) {
+        EditorSwitchRow(
+            glyph = NerdIcons.BellAlert,
+            label = "Alarme em tela cheia",
+            subtitle = "Abre sobre a tela bloqueada ou app atual",
+            checked = aggressiveFullScreen,
+            onCheckedChange = onAggressiveFullScreenChange
+        )
+        EditorSwitchRow(
+            glyph = NerdIcons.Vibrate,
+            label = "Vibração",
+            checked = vibrationEnabled,
+            onCheckedChange = onVibrationEnabledChange
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TaskEditorScreen(
     initialTask: Task?,
@@ -314,180 +520,73 @@ fun TaskEditorScreen(
             }
         }
     ) { innerPadding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .padding(innerPadding),
+            contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            AnimatedVisibility(
-                visible = errorMessage != null,
-                enter = expandVertically(tween(220, easing = FastOutSlowInEasing)) + fadeIn(tween(180)),
-                exit = shrinkVertically(tween(180)) + fadeOut(tween(140))
-            ) {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        NerdIcon(glyph = NerdIcons.AlertCircle, color = PriorityHigh, size = 18.sp)
-                        Text(
-                            text = errorMessage.orEmpty(),
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
+            if (errorMessage != null) {
+                item(key = "task_error_banner", contentType = "error_banner") {
+                    EditorErrorBanner(errorMessage = errorMessage)
                 }
             }
 
-            EditorSectionCard(title = "Detalhes da Tarefa", glyph = NerdIcons.Pencil) {
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it; errorMessage = null },
-                    label = { Text("Título da tarefa") },
-                    leadingIcon = { NerdIcon(glyph = NerdIcons.Pencil, size = 18.sp) },
-                    singleLine = true,
-                    colors = oledTextFieldColors(),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = notes,
-                    onValueChange = { notes = it },
-                    label = { Text("Notas (opcional)") },
-                    leadingIcon = { NerdIcon(glyph = NerdIcons.FormatListChecks, size = 18.sp) },
-                    colors = oledTextFieldColors(),
-                    modifier = Modifier.fillMaxWidth()
+            item(key = "task_details_section", contentType = "task_details") {
+                TaskDetailsSection(
+                    title = title,
+                    notes = notes,
+                    onTitleChange = {
+                        title = it
+                        if (errorMessage != null) errorMessage = null
+                    },
+                    onNotesChange = { notes = it }
                 )
             }
 
-            EditorSectionCard(title = "Data e Duração", glyph = NerdIcons.Calendar) {
-                DateSelectorField(
-                    label = "Data de início",
-                    epochDay = startEpochDay,
-                    onClick = { showDatePicker = true }
-                )
-
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    FilterChip(
-                        selected = startEpochDay == todayEpochDay - 1,
-                        onClick = { startEpochDay = todayEpochDay - 1 },
-                        label = { Text("Ontem") }
-                    )
-                    FilterChip(
-                        selected = startEpochDay == todayEpochDay,
-                        onClick = { startEpochDay = todayEpochDay },
-                        label = { Text("Hoje") }
-                    )
-                    FilterChip(
-                        selected = startEpochDay == todayEpochDay + 1,
-                        onClick = { startEpochDay = todayEpochDay + 1 },
-                        label = { Text("Amanhã") }
-                    )
-                }
-
-                OutlinedTextField(
-                    value = durationDaysText,
-                    onValueChange = { durationDaysText = it.filter { c -> c.isDigit() } },
-                    label = { Text("Duração em dias (1..N)") },
-                    leadingIcon = { NerdIcon(glyph = NerdIcons.CalendarToday, size = 18.sp) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    colors = oledTextFieldColors(),
-                    modifier = Modifier.fillMaxWidth()
+            item(key = "task_date_section", contentType = "task_date") {
+                TaskDateAndDurationSection(
+                    startEpochDay = startEpochDay,
+                    todayEpochDay = todayEpochDay,
+                    durationDaysText = durationDaysText,
+                    onOpenDatePicker = { showDatePicker = true },
+                    onSelectStartDay = { startEpochDay = it },
+                    onDurationDaysChange = { durationDaysText = it }
                 )
             }
 
-            EditorSectionCard(title = "Horário & Momento", glyph = NerdIcons.ClockOutline) {
-                EditorSwitchRow(
-                    glyph = NerdIcons.ClockOutline,
-                    label = "Horário exato",
-                    subtitle = "Dispara no minuto configurado",
-                    checked = useExactTime,
-                    onCheckedChange = { useExactTime = it }
-                )
-
-                AnimatedVisibility(
-                    visible = useExactTime,
-                    enter = expandVertically(tween(240, easing = FastOutSlowInEasing)) + fadeIn(tween(200)),
-                    exit = shrinkVertically(tween(200)) + fadeOut(tween(150))
-                ) {
-                    TimeSelectorField(
-                        label = "Horário do lembrete",
-                        minutesOfDay = scheduledMinutes,
-                        onClick = { showTimePicker = true }
-                    )
-                }
-
-                if (moments.isNotEmpty()) {
-                    Text(
-                        text = "Momento associado (opcional)",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = TextSecondary
-                    )
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        FilterChip(
-                            selected = selectedMomentId == null,
-                            onClick = { selectedMomentId = null },
-                            label = { Text("Nenhum") }
-                        )
-                        moments.forEach { moment ->
-                            FilterChip(
-                                selected = selectedMomentId == moment.id,
-                                onClick = {
-                                    selectedMomentId = moment.id
-                                    if (initialTask == null) useExactTime = false
-                                },
-                                leadingIcon = {
-                                    NerdIcon(
-                                        glyph = momentNerdGlyph(moment.startMinutesOfDay),
-                                        size = 14.sp
-                                    )
-                                },
-                                label = { Text(moment.name) }
-                            )
-                        }
-                    }
-                }
-
-                RepeatIntervalHourMinuteFields(
-                    hoursText = repeatHoursText,
-                    minutesText = repeatMinutesText,
-                    onHoursChange = { repeatHoursText = it },
-                    onMinutesChange = { repeatMinutesText = it },
-                    isOptional = true
+            item(key = "task_time_section", contentType = "task_time") {
+                TaskTimeAndMomentSection(
+                    useExactTime = useExactTime,
+                    scheduledMinutes = scheduledMinutes,
+                    moments = moments,
+                    selectedMomentId = selectedMomentId,
+                    repeatHoursText = repeatHoursText,
+                    repeatMinutesText = repeatMinutesText,
+                    onUseExactTimeChange = { useExactTime = it },
+                    onOpenTimePicker = { showTimePicker = true },
+                    onSelectMomentId = { id ->
+                        selectedMomentId = id
+                        if (id != null && initialTask == null) useExactTime = false
+                    },
+                    onRepeatHoursChange = { repeatHoursText = it },
+                    onRepeatMinutesChange = { repeatMinutesText = it }
                 )
             }
 
-            EditorSectionCard(title = "Alertas", glyph = NerdIcons.BellAlert) {
-                EditorSwitchRow(
-                    glyph = NerdIcons.BellAlert,
-                    label = "Alarme em tela cheia",
-                    subtitle = "Abre sobre a tela bloqueada ou app atual",
-                    checked = aggressiveFullScreen,
-                    onCheckedChange = { aggressiveFullScreen = it }
-                )
-                EditorSwitchRow(
-                    glyph = NerdIcons.Vibrate,
-                    label = "Vibração",
-                    checked = vibrationEnabled,
-                    onCheckedChange = { vibrationEnabled = it }
+            item(key = "task_alerts_section", contentType = "task_alerts") {
+                TaskAlertsSection(
+                    aggressiveFullScreen = aggressiveFullScreen,
+                    vibrationEnabled = vibrationEnabled,
+                    onAggressiveFullScreenChange = { aggressiveFullScreen = it },
+                    onVibrationEnabledChange = { vibrationEnabled = it }
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            item(key = "task_bottom_spacer", contentType = "spacer") {
+                Spacer(modifier = Modifier.height(16.dp))
+            }
         }
     }
 
@@ -515,7 +614,382 @@ fun TaskEditorScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun HabitIdentitySection(
+    title: String,
+    notes: String,
+    selectedIconGlyph: String,
+    selectedGroup: HabitGroup?,
+    habitGroups: List<HabitGroup>,
+    onTitleChange: (String) -> Unit,
+    onNotesChange: (String) -> Unit,
+    onOpenIconPicker: () -> Unit,
+    onSelectGroup: (HabitGroup?) -> Unit,
+    onOpenCreateGroup: () -> Unit
+) {
+    val previewColor = selectedGroup?.let { Color(it.colorArgb.toInt()) } ?: IndigoPrimary
+    val textFieldColors = oledTextFieldColors()
+
+    EditorSectionCard(title = "Identidade, Grupo & Ícone", glyph = NerdIcons.Tag) {
+        Surface(
+            onClick = onOpenIconPicker,
+            shape = RoundedCornerShape(12.dp),
+            color = OledSurfaceElevated,
+            border = BorderStroke(1.dp, OledBorder)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                HabitBadgeIcon(
+                    iconGlyph = selectedIconGlyph,
+                    groupColorArgb = selectedGroup?.colorArgb,
+                    size = 48.dp,
+                    iconSize = 23.sp
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = selectedGroup?.name ?: "Sem grupo",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = previewColor,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "Toque para escolher o ícone",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextPrimary
+                    )
+                }
+                NerdIcon(glyph = NerdIcons.Tune, color = TextSecondary, size = 16.sp)
+            }
+        }
+
+        OutlinedTextField(
+            value = title,
+            onValueChange = onTitleChange,
+            label = { Text("Nome do hábito (ex.: Beber água, Arrumar quarto)") },
+            leadingIcon = { NerdIcon(glyph = NerdIcons.Pencil, size = 18.sp) },
+            singleLine = true,
+            colors = textFieldColors,
+            modifier = Modifier.fillMaxWidth()
+        )
+        OutlinedTextField(
+            value = notes,
+            onValueChange = onNotesChange,
+            label = { Text("Notas (opcional)") },
+            leadingIcon = { NerdIcon(glyph = NerdIcons.FormatListChecks, size = 18.sp) },
+            colors = textFieldColors,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Text(
+            text = "Grupo do hábito (define a cor circular do ícone)",
+            style = MaterialTheme.typography.labelLarge,
+            color = TextSecondary
+        )
+
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            FilterChip(
+                selected = selectedGroup == null,
+                onClick = { onSelectGroup(null) },
+                label = { Text("Nenhum") }
+            )
+            habitGroups.forEach { group ->
+                FilterChip(
+                    selected = selectedGroup?.id == group.id,
+                    onClick = { onSelectGroup(group) },
+                    leadingIcon = {
+                        Box(
+                            modifier = Modifier
+                                .size(12.dp)
+                                .clip(CircleShape)
+                                .background(Color(group.colorArgb.toInt()))
+                        )
+                    },
+                    label = { Text(group.name) }
+                )
+            }
+            FilterChip(
+                selected = false,
+                onClick = onOpenCreateGroup,
+                leadingIcon = { NerdIcon(glyph = NerdIcons.PlusCircle, color = IndigoPrimary, size = 15.sp) },
+                label = { Text("Novo grupo") }
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun HabitScheduleAndFrequencySection(
+    startEpochDay: Long,
+    todayEpochDay: Long,
+    activeDaysMask: Int,
+    onOpenDatePicker: () -> Unit,
+    onSelectStartDay: (Long) -> Unit,
+    onActiveDaysMaskChange: (Int) -> Unit
+) {
+    EditorSectionCard(title = "Início Retroativo & Frequência", glyph = NerdIcons.History) {
+        DateSelectorField(
+            label = "Data de início (pode ser anterior a hoje)",
+            epochDay = startEpochDay,
+            onClick = onOpenDatePicker
+        )
+
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            FilterChip(
+                selected = startEpochDay == todayEpochDay,
+                onClick = { onSelectStartDay(todayEpochDay) },
+                label = { Text("Hoje") }
+            )
+            FilterChip(
+                selected = startEpochDay == todayEpochDay - 1,
+                onClick = { onSelectStartDay(todayEpochDay - 1) },
+                label = { Text("Ontem") }
+            )
+            FilterChip(
+                selected = startEpochDay == todayEpochDay - 7,
+                onClick = { onSelectStartDay(todayEpochDay - 7) },
+                label = { Text("7 dias atrás") }
+            )
+            FilterChip(
+                selected = startEpochDay == todayEpochDay - 30,
+                onClick = { onSelectStartDay(todayEpochDay - 30) },
+                label = { Text("30 dias atrás") }
+            )
+        }
+
+        Text(
+            text = "Dias ativos na semana",
+            style = MaterialTheme.typography.labelLarge,
+            color = TextSecondary
+        )
+        DaysOfWeekSelector(mask = activeDaysMask, onMaskChange = onActiveDaysMaskChange)
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun HabitCompletionModeSection(
+    completionType: CompletionType,
+    countPerDayTargetText: String,
+    customIncrementValueText: String,
+    customIncrementUnitText: String,
+    customTargetValueText: String,
+    customTargetUnitText: String,
+    onCompletionTypeChange: (CompletionType) -> Unit,
+    onCountPerDayTargetChange: (String) -> Unit,
+    onCustomIncrementValueChange: (String) -> Unit,
+    onCustomIncrementUnitChange: (String) -> Unit,
+    onCustomTargetValueChange: (String) -> Unit,
+    onCustomTargetUnitChange: (String) -> Unit
+) {
+    val textFieldColors = oledTextFieldColors()
+
+    EditorSectionCard(title = "Modo de Conclusão", glyph = NerdIcons.Target) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            FilterChip(
+                selected = completionType == CompletionType.BOOLEAN,
+                onClick = { onCompletionTypeChange(CompletionType.BOOLEAN) },
+                leadingIcon = { NerdIcon(glyph = NerdIcons.CheckCircle, size = 14.sp) },
+                label = { Text("Sim/Não") }
+            )
+            FilterChip(
+                selected = completionType == CompletionType.COUNT_PER_DAY,
+                onClick = { onCompletionTypeChange(CompletionType.COUNT_PER_DAY) },
+                leadingIcon = { NerdIcon(glyph = NerdIcons.Counter, size = 14.sp) },
+                label = { Text("N 'Sim' / dia") }
+            )
+            FilterChip(
+                selected = completionType == CompletionType.CUSTOM_UNIT,
+                onClick = { onCompletionTypeChange(CompletionType.CUSTOM_UNIT) },
+                leadingIcon = { NerdIcon(glyph = NerdIcons.CupWater, size = 14.sp) },
+                label = { Text("Unidade custom") }
+            )
+        }
+
+        AnimatedContent(
+            targetState = completionType,
+            transitionSpec = {
+                fadeIn(tween(180)) togetherWith fadeOut(tween(140))
+            },
+            label = "completion_type_transition"
+        ) { currentType ->
+            when (currentType) {
+                CompletionType.BOOLEAN -> {
+                    Text(
+                        text = "1 confirmação 'Sim' conclui o hábito no dia.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary
+                    )
+                }
+                CompletionType.COUNT_PER_DAY -> {
+                    OutlinedTextField(
+                        value = countPerDayTargetText,
+                        onValueChange = { onCountPerDayTargetChange(it.filter { c -> c.isDigit() }) },
+                        label = { Text("Quantidade de 'Sim' por dia") },
+                        leadingIcon = { NerdIcon(glyph = NerdIcons.Counter, size = 18.sp) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        colors = textFieldColors,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                CompletionType.CUSTOM_UNIT -> {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = customIncrementValueText,
+                                onValueChange = onCustomIncrementValueChange,
+                                label = { Text("Por 'Sim' (ex.: 250)") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                singleLine = true,
+                                colors = textFieldColors,
+                                modifier = Modifier.weight(1f)
+                            )
+                            OutlinedTextField(
+                                value = customIncrementUnitText,
+                                onValueChange = onCustomIncrementUnitChange,
+                                label = { Text("Unid. (ex.: ml)") },
+                                singleLine = true,
+                                colors = textFieldColors,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = customTargetValueText,
+                                onValueChange = onCustomTargetValueChange,
+                                label = { Text("Meta (ex.: 2000)") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                singleLine = true,
+                                colors = textFieldColors,
+                                modifier = Modifier.weight(1f)
+                            )
+                            OutlinedTextField(
+                                value = customTargetUnitText,
+                                onValueChange = onCustomTargetUnitChange,
+                                label = { Text("Unid. meta (ex.: ml)") },
+                                singleLine = true,
+                                colors = textFieldColors,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun HabitTimeMomentAndAlertsSection(
+    useExactTime: Boolean,
+    scheduledMinutes: Int,
+    moments: List<Moment>,
+    selectedMomentId: Long?,
+    repeatHoursText: String,
+    repeatMinutesText: String,
+    aggressiveFullScreen: Boolean,
+    vibrationEnabled: Boolean,
+    onUseExactTimeChange: (Boolean) -> Unit,
+    onOpenTimePicker: () -> Unit,
+    onSelectMomentId: (Long?) -> Unit,
+    onRepeatHoursChange: (String) -> Unit,
+    onRepeatMinutesChange: (String) -> Unit,
+    onAggressiveFullScreenChange: (Boolean) -> Unit,
+    onVibrationEnabledChange: (Boolean) -> Unit
+) {
+    EditorSectionCard(title = "Horário, Momento & Alertas", glyph = NerdIcons.BellAlert) {
+        EditorSwitchRow(
+            glyph = NerdIcons.ClockOutline,
+            label = "Horário exato",
+            checked = useExactTime,
+            onCheckedChange = onUseExactTimeChange
+        )
+
+        AnimatedVisibility(
+            visible = useExactTime,
+            enter = expandVertically(tween(200, easing = FastOutSlowInEasing)) + fadeIn(tween(160)),
+            exit = shrinkVertically(tween(160)) + fadeOut(tween(120))
+        ) {
+            TimeSelectorField(
+                label = "Horário do lembrete",
+                minutesOfDay = scheduledMinutes,
+                onClick = onOpenTimePicker
+            )
+        }
+
+        if (moments.isNotEmpty()) {
+            Text(
+                text = "Momento associado (opcional)",
+                style = MaterialTheme.typography.labelLarge,
+                color = TextSecondary
+            )
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                FilterChip(
+                    selected = selectedMomentId == null,
+                    onClick = { onSelectMomentId(null) },
+                    label = { Text("Nenhum") }
+                )
+                moments.forEach { moment ->
+                    FilterChip(
+                        selected = selectedMomentId == moment.id,
+                        onClick = { onSelectMomentId(moment.id) },
+                        leadingIcon = {
+                            NerdIcon(
+                                glyph = momentNerdGlyph(moment.startMinutesOfDay),
+                                size = 14.sp
+                            )
+                        },
+                        label = { Text(moment.name) }
+                    )
+                }
+            }
+        }
+
+        RepeatIntervalHourMinuteFields(
+            hoursText = repeatHoursText,
+            minutesText = repeatMinutesText,
+            onHoursChange = onRepeatHoursChange,
+            onMinutesChange = onRepeatMinutesChange,
+            isOptional = true
+        )
+
+        EditorSwitchRow(
+            glyph = NerdIcons.BellAlert,
+            label = "Alarme em tela cheia",
+            checked = aggressiveFullScreen,
+            onCheckedChange = onAggressiveFullScreenChange
+        )
+
+        EditorSwitchRow(
+            glyph = NerdIcons.Vibrate,
+            label = "Vibração",
+            checked = vibrationEnabled,
+            onCheckedChange = onVibrationEnabledChange
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HabitEditorScreen(
     initialHabit: Habit?,
@@ -596,7 +1070,9 @@ fun HabitEditorScreen(
     var vibrationEnabled by remember { mutableStateOf(initialHabit?.vibrationEnabled ?: true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    val selectedGroup = habitGroups.firstOrNull { it.id == selectedGroupId }
+    val selectedGroup = remember(habitGroups, selectedGroupId) {
+        habitGroups.firstOrNull { it.id == selectedGroupId }
+    }
     val previewColor = selectedGroup?.let { Color(it.colorArgb.toInt()) } ?: IndigoPrimary
 
     fun submit() {
@@ -747,355 +1223,96 @@ fun HabitEditorScreen(
             }
         }
     ) { innerPadding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .padding(innerPadding),
+            contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            AnimatedVisibility(
-                visible = errorMessage != null,
-                enter = expandVertically(tween(220, easing = FastOutSlowInEasing)) + fadeIn(tween(180)),
-                exit = shrinkVertically(tween(180)) + fadeOut(tween(140))
-            ) {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        NerdIcon(glyph = NerdIcons.AlertCircle, color = PriorityHigh, size = 18.sp)
-                        Text(
-                            text = errorMessage.orEmpty(),
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
+            if (errorMessage != null) {
+                item(key = "habit_error_banner", contentType = "error_banner") {
+                    EditorErrorBanner(errorMessage = errorMessage)
                 }
             }
 
-            EditorSectionCard(title = "Identidade, Grupo & Ícone", glyph = NerdIcons.Tag) {
-                Surface(
-                    onClick = { showIconPicker = true },
-                    shape = RoundedCornerShape(12.dp),
-                    color = OledSurfaceElevated,
-                    border = BorderStroke(1.dp, OledBorder)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        HabitBadgeIcon(
-                            iconGlyph = selectedIconGlyph,
-                            groupColorArgb = selectedGroup?.colorArgb,
-                            size = 48.dp,
-                            iconSize = 23.sp
-                        )
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = selectedGroup?.name ?: "Sem grupo",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = previewColor,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                text = "Toque para escolher o ícone",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = TextPrimary
-                            )
-                        }
-                        NerdIcon(glyph = NerdIcons.Tune, color = TextSecondary, size = 16.sp)
-                    }
-                }
-
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it; errorMessage = null },
-                    label = { Text("Nome do hábito (ex.: Beber água, Arrumar quarto)") },
-                    leadingIcon = { NerdIcon(glyph = NerdIcons.Pencil, size = 18.sp) },
-                    singleLine = true,
-                    colors = oledTextFieldColors(),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = notes,
-                    onValueChange = { notes = it },
-                    label = { Text("Notas (opcional)") },
-                    leadingIcon = { NerdIcon(glyph = NerdIcons.FormatListChecks, size = 18.sp) },
-                    colors = oledTextFieldColors(),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Text(
-                    text = "Grupo do hábito (define a cor circular do ícone)",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = TextSecondary
-                )
-
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    FilterChip(
-                        selected = selectedGroupId == null,
-                        onClick = { selectedGroupId = null },
-                        label = { Text("Nenhum") }
-                    )
-                    habitGroups.forEach { group ->
-                        FilterChip(
-                            selected = selectedGroupId == group.id,
-                            onClick = {
-                                selectedGroupId = group.id
-                                if (initialHabit == null && selectedIconGlyph == NerdIcons.Fire) {
-                                    selectedIconGlyph = group.iconGlyph
-                                }
-                            },
-                            leadingIcon = {
-                                Box(
-                                    modifier = Modifier
-                                        .size(12.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(group.colorArgb.toInt()))
-                                )
-                            },
-                            label = { Text(group.name) }
-                        )
-                    }
-                    FilterChip(
-                        selected = false,
-                        onClick = { showCreateGroupDialog = true },
-                        leadingIcon = { NerdIcon(glyph = NerdIcons.PlusCircle, color = IndigoPrimary, size = 15.sp) },
-                        label = { Text("Novo grupo") }
-                    )
-                }
-            }
-
-            EditorSectionCard(title = "Início Retroativo & Frequência", glyph = NerdIcons.History) {
-                DateSelectorField(
-                    label = "Data de início (pode ser anterior a hoje)",
-                    epochDay = startEpochDay,
-                    onClick = { showDatePicker = true }
-                )
-
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    FilterChip(
-                        selected = startEpochDay == todayEpochDay,
-                        onClick = { startEpochDay = todayEpochDay },
-                        label = { Text("Hoje") }
-                    )
-                    FilterChip(
-                        selected = startEpochDay == todayEpochDay - 1,
-                        onClick = { startEpochDay = todayEpochDay - 1 },
-                        label = { Text("Ontem") }
-                    )
-                    FilterChip(
-                        selected = startEpochDay == todayEpochDay - 7,
-                        onClick = { startEpochDay = todayEpochDay - 7 },
-                        label = { Text("7 dias atrás") }
-                    )
-                    FilterChip(
-                        selected = startEpochDay == todayEpochDay - 30,
-                        onClick = { startEpochDay = todayEpochDay - 30 },
-                        label = { Text("30 dias atrás") }
-                    )
-                }
-
-                Text(
-                    text = "Dias ativos na semana",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = TextSecondary
-                )
-                DaysOfWeekSelector(mask = activeDaysMask, onMaskChange = { activeDaysMask = it })
-            }
-
-            EditorSectionCard(title = "Modo de Conclusão", glyph = NerdIcons.Target) {
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    FilterChip(
-                        selected = completionType == CompletionType.BOOLEAN,
-                        onClick = { completionType = CompletionType.BOOLEAN },
-                        leadingIcon = { NerdIcon(glyph = NerdIcons.CheckCircle, size = 14.sp) },
-                        label = { Text("Sim/Não") }
-                    )
-                    FilterChip(
-                        selected = completionType == CompletionType.COUNT_PER_DAY,
-                        onClick = { completionType = CompletionType.COUNT_PER_DAY },
-                        leadingIcon = { NerdIcon(glyph = NerdIcons.Counter, size = 14.sp) },
-                        label = { Text("N 'Sim' / dia") }
-                    )
-                    FilterChip(
-                        selected = completionType == CompletionType.CUSTOM_UNIT,
-                        onClick = { completionType = CompletionType.CUSTOM_UNIT },
-                        leadingIcon = { NerdIcon(glyph = NerdIcons.CupWater, size = 14.sp) },
-                        label = { Text("Unidade custom") }
-                    )
-                }
-
-                AnimatedContent(
-                    targetState = completionType,
-                    transitionSpec = {
-                        fadeIn(tween(220)) togetherWith fadeOut(tween(160))
+            item(key = "habit_identity_section", contentType = "habit_identity") {
+                HabitIdentitySection(
+                    title = title,
+                    notes = notes,
+                    selectedIconGlyph = selectedIconGlyph,
+                    selectedGroup = selectedGroup,
+                    habitGroups = habitGroups,
+                    onTitleChange = {
+                        title = it
+                        if (errorMessage != null) errorMessage = null
                     },
-                    label = "completion_type_transition"
-                ) { currentType ->
-                    when (currentType) {
-                        CompletionType.BOOLEAN -> {
-                            Text(
-                                text = "1 confirmação 'Sim' conclui o hábito no dia.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = TextSecondary
-                            )
+                    onNotesChange = { notes = it },
+                    onOpenIconPicker = { showIconPicker = true },
+                    onSelectGroup = { group ->
+                        selectedGroupId = group?.id
+                        if (group != null && initialHabit == null && selectedIconGlyph == NerdIcons.Fire) {
+                            selectedIconGlyph = group.iconGlyph
                         }
-                        CompletionType.COUNT_PER_DAY -> {
-                            OutlinedTextField(
-                                value = countPerDayTargetText,
-                                onValueChange = { countPerDayTargetText = it.filter { c -> c.isDigit() } },
-                                label = { Text("Quantidade de 'Sim' por dia") },
-                                leadingIcon = { NerdIcon(glyph = NerdIcons.Counter, size = 18.sp) },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                singleLine = true,
-                                colors = oledTextFieldColors(),
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                        CompletionType.CUSTOM_UNIT -> {
-                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    OutlinedTextField(
-                                        value = customIncrementValueText,
-                                        onValueChange = { customIncrementValueText = it },
-                                        label = { Text("Por 'Sim' (ex.: 250)") },
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                        singleLine = true,
-                                        colors = oledTextFieldColors(),
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    OutlinedTextField(
-                                        value = customIncrementUnitText,
-                                        onValueChange = { customIncrementUnitText = it },
-                                        label = { Text("Unid. (ex.: ml)") },
-                                        singleLine = true,
-                                        colors = oledTextFieldColors(),
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                }
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    OutlinedTextField(
-                                        value = customTargetValueText,
-                                        onValueChange = { customTargetValueText = it },
-                                        label = { Text("Meta (ex.: 2000)") },
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                        singleLine = true,
-                                        colors = oledTextFieldColors(),
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    OutlinedTextField(
-                                        value = customTargetUnitText,
-                                        onValueChange = { customTargetUnitText = it },
-                                        label = { Text("Unid. meta (ex.: ml)") },
-                                        singleLine = true,
-                                        colors = oledTextFieldColors(),
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            EditorSectionCard(title = "Horário, Momento & Alertas", glyph = NerdIcons.BellAlert) {
-                EditorSwitchRow(
-                    glyph = NerdIcons.ClockOutline,
-                    label = "Horário exato",
-                    checked = useExactTime,
-                    onCheckedChange = { useExactTime = it }
-                )
-
-                AnimatedVisibility(
-                    visible = useExactTime,
-                    enter = expandVertically(tween(240, easing = FastOutSlowInEasing)) + fadeIn(tween(200)),
-                    exit = shrinkVertically(tween(200)) + fadeOut(tween(150))
-                ) {
-                    TimeSelectorField(
-                        label = "Horário do lembrete",
-                        minutesOfDay = scheduledMinutes,
-                        onClick = { showTimePicker = true }
-                    )
-                }
-
-                if (moments.isNotEmpty()) {
-                    Text(
-                        text = "Momento associado (opcional)",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = TextSecondary
-                    )
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        FilterChip(
-                            selected = selectedMomentId == null,
-                            onClick = { selectedMomentId = null },
-                            label = { Text("Nenhum") }
-                        )
-                        moments.forEach { moment ->
-                            FilterChip(
-                                selected = selectedMomentId == moment.id,
-                                onClick = {
-                                    selectedMomentId = moment.id
-                                    if (initialHabit == null) useExactTime = false
-                                },
-                                leadingIcon = {
-                                    NerdIcon(
-                                        glyph = momentNerdGlyph(moment.startMinutesOfDay),
-                                        size = 14.sp
-                                    )
-                                },
-                                label = { Text(moment.name) }
-                            )
-                        }
-                    }
-                }
-
-                RepeatIntervalHourMinuteFields(
-                    hoursText = repeatHoursText,
-                    minutesText = repeatMinutesText,
-                    onHoursChange = { repeatHoursText = it },
-                    onMinutesChange = { repeatMinutesText = it },
-                    isOptional = true
-                )
-
-                EditorSwitchRow(
-                    glyph = NerdIcons.BellAlert,
-                    label = "Alarme em tela cheia",
-                    checked = aggressiveFullScreen,
-                    onCheckedChange = { aggressiveFullScreen = it }
-                )
-
-                EditorSwitchRow(
-                    glyph = NerdIcons.Vibrate,
-                    label = "Vibração",
-                    checked = vibrationEnabled,
-                    onCheckedChange = { vibrationEnabled = it }
+                    },
+                    onOpenCreateGroup = { showCreateGroupDialog = true }
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            item(key = "habit_schedule_section", contentType = "habit_schedule") {
+                HabitScheduleAndFrequencySection(
+                    startEpochDay = startEpochDay,
+                    todayEpochDay = todayEpochDay,
+                    activeDaysMask = activeDaysMask,
+                    onOpenDatePicker = { showDatePicker = true },
+                    onSelectStartDay = { startEpochDay = it },
+                    onActiveDaysMaskChange = { activeDaysMask = it }
+                )
+            }
+
+            item(key = "habit_completion_section", contentType = "habit_completion") {
+                HabitCompletionModeSection(
+                    completionType = completionType,
+                    countPerDayTargetText = countPerDayTargetText,
+                    customIncrementValueText = customIncrementValueText,
+                    customIncrementUnitText = customIncrementUnitText,
+                    customTargetValueText = customTargetValueText,
+                    customTargetUnitText = customTargetUnitText,
+                    onCompletionTypeChange = { completionType = it },
+                    onCountPerDayTargetChange = { countPerDayTargetText = it },
+                    onCustomIncrementValueChange = { customIncrementValueText = it },
+                    onCustomIncrementUnitChange = { customIncrementUnitText = it },
+                    onCustomTargetValueChange = { customTargetValueText = it },
+                    onCustomTargetUnitChange = { customTargetUnitText = it }
+                )
+            }
+
+            item(key = "habit_alerts_section", contentType = "habit_alerts") {
+                HabitTimeMomentAndAlertsSection(
+                    useExactTime = useExactTime,
+                    scheduledMinutes = scheduledMinutes,
+                    moments = moments,
+                    selectedMomentId = selectedMomentId,
+                    repeatHoursText = repeatHoursText,
+                    repeatMinutesText = repeatMinutesText,
+                    aggressiveFullScreen = aggressiveFullScreen,
+                    vibrationEnabled = vibrationEnabled,
+                    onUseExactTimeChange = { useExactTime = it },
+                    onOpenTimePicker = { showTimePicker = true },
+                    onSelectMomentId = { id ->
+                        selectedMomentId = id
+                        if (id != null && initialHabit == null) useExactTime = false
+                    },
+                    onRepeatHoursChange = { repeatHoursText = it },
+                    onRepeatMinutesChange = { repeatMinutesText = it },
+                    onAggressiveFullScreenChange = { aggressiveFullScreen = it },
+                    onVibrationEnabledChange = { vibrationEnabled = it }
+                )
+            }
+
+            item(key = "habit_bottom_spacer", contentType = "spacer") {
+                Spacer(modifier = Modifier.height(16.dp))
+            }
         }
     }
 

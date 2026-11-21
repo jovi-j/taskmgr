@@ -23,6 +23,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -62,7 +63,9 @@ fun HabitGroupsScreen(
     onDeleteHabit: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val habitsByGroupId = habitsWithStats.groupBy { it.habit.groupId }
+    val habitsByGroupId = remember(habitsWithStats) {
+        habitsWithStats.groupBy { it.habit.groupId }
+    }
     val ungroupedHabits = habitsByGroupId[null].orEmpty()
 
     LazyColumn(
@@ -70,7 +73,7 @@ fun HabitGroupsScreen(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        item(key = "groups_header") {
+        item(key = "groups_header", contentType = "groups_header") {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -101,11 +104,9 @@ fun HabitGroupsScreen(
         }
 
         if (habitGroups.isEmpty() && ungroupedHabits.isEmpty()) {
-            item(key = "groups_empty") {
+            item(key = "groups_empty", contentType = "groups_empty") {
                 Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .animateItem(),
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = OledSurface),
                     border = BorderStroke(1.dp, OledBorder)
@@ -137,7 +138,11 @@ fun HabitGroupsScreen(
                 }
             }
         } else {
-            items(habitGroups, key = { "group_section_${it.id}" }) { group ->
+            items(
+                items = habitGroups,
+                key = { "group_section_${it.id}" },
+                contentType = { "group_section" }
+            ) { group ->
                 val groupHabits = habitsByGroupId[group.id].orEmpty()
                 HabitGroupSectionCard(
                     group = group,
@@ -146,25 +151,23 @@ fun HabitGroupsScreen(
                     onDeleteGroup = { onDeleteHabitGroup(group.id) },
                     onAddHabitToGroup = { onCreateHabitInGroup(group.id) },
                     onEditHabit = onEditHabit,
-                    onDeleteHabit = onDeleteHabit,
-                    modifier = Modifier.animateItem()
+                    onDeleteHabit = onDeleteHabit
                 )
             }
 
             if (ungroupedHabits.isNotEmpty()) {
-                item(key = "ungrouped_section") {
+                item(key = "ungrouped_section", contentType = "ungrouped_section") {
                     UngroupedHabitsSectionCard(
                         habits = ungroupedHabits,
                         onAddHabit = { onCreateHabitInGroup(null) },
                         onEditHabit = onEditHabit,
-                        onDeleteHabit = onDeleteHabit,
-                        modifier = Modifier.animateItem()
+                        onDeleteHabit = onDeleteHabit
                     )
                 }
             }
         }
 
-        item(key = "groups_bottom_spacer") {
+        item(key = "groups_bottom_spacer", contentType = "spacer") {
             Spacer(modifier = Modifier.height(28.dp))
         }
     }

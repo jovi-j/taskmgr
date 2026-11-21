@@ -1,7 +1,7 @@
 # specs/01-domain-and-invariants.spec.md
-version: 1.1.0
+version: 1.1.1
 status: implemented
-system: taskmgr (Android v0.0.1)
+system: taskmgr (Android v0.0.2)
 
 ## 1. Domínio e Regras de Negócio
 

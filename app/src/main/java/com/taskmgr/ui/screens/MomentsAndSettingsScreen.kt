@@ -375,7 +375,7 @@ private fun SettingsMenuScreen(
             SettingsMenuButtonCard(
                 iconGlyph = NerdIcons.CodeTags,
                 title = SettingsSection.ABOUT.title,
-                subtitle = "Versão 0.0.1 • Criado por Jovi",
+                subtitle = "Versão 0.0.2 • Criado por Jovi",
                 onClick = { onSelectSection(SettingsSection.ABOUT) }
             )
         }
@@ -571,7 +571,7 @@ private fun AboutSettingsCard() {
                         color = TextPrimary
                     )
                     Text(
-                        text = "Versão 0.0.1",
+                        text = "Versão 0.0.2",
                         style = MaterialTheme.typography.bodyMedium,
                         color = IndigoPrimary,
                         fontWeight = FontWeight.SemiBold

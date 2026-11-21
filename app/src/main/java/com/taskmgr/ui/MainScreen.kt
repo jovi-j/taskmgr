@@ -270,23 +270,14 @@ fun MainScreen(viewModel: TaskMgrViewModel) {
         transitionSpec = {
             if (targetState != null) {
                 (slideInVertically(
-                    animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
-                    initialOffsetY = { it / 6 }
-                ) + fadeIn(tween(260)) + scaleIn(
-                    initialScale = 0.98f,
-                    animationSpec = tween(320, easing = FastOutSlowInEasing)
-                )) togetherWith (fadeOut(tween(180)) + scaleOut(
-                    targetScale = 0.97f,
-                    animationSpec = tween(220)
-                ))
+                    animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+                    initialOffsetY = { it / 10 }
+                ) + fadeIn(tween(180))) togetherWith fadeOut(tween(120))
             } else {
-                (fadeIn(tween(260)) + scaleIn(
-                    initialScale = 0.97f,
-                    animationSpec = tween(280, easing = FastOutSlowInEasing)
-                )) togetherWith (slideOutVertically(
-                    animationSpec = tween(260, easing = FastOutSlowInEasing),
-                    targetOffsetY = { it / 6 }
-                ) + fadeOut(tween(180)))
+                fadeIn(tween(180)) togetherWith (slideOutVertically(
+                    animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
+                    targetOffsetY = { it / 10 }
+                ) + fadeOut(tween(140)))
             }
         },
         label = "editor_screen_transition"

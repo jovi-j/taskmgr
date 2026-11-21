@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,6 +17,9 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -65,6 +69,8 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+
+private val DD_MM_YYYY_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 
 data class GroupColorOption(
     val label: String,
@@ -143,8 +149,9 @@ fun DateSelectorField(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val formatted = LocalDate.ofEpochDay(epochDay)
-        .format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+    val formatted = remember(epochDay) {
+        LocalDate.ofEpochDay(epochDay).format(DD_MM_YYYY_FORMATTER)
+    }
     Surface(
         onClick = onClick,
         modifier = modifier,
@@ -201,10 +208,12 @@ fun DatePickerModalDialog(
     onDismiss: () -> Unit,
     onConfirm: (Long) -> Unit
 ) {
-    val initialMillis = LocalDate.ofEpochDay(initialEpochDay)
-        .atStartOfDay(ZoneOffset.UTC)
-        .toInstant()
-        .toEpochMilli()
+    val initialMillis = remember(initialEpochDay) {
+        LocalDate.ofEpochDay(initialEpochDay)
+            .atStartOfDay(ZoneOffset.UTC)
+            .toInstant()
+            .toEpochMilli()
+    }
     val state = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
 
     DatePickerDialog(
@@ -269,6 +278,8 @@ fun HabitIconPickerDialog(
         }
     }
 
+    val selectedForeground = remember(accentColor) { contrastContentColor(accentColor) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = OledSurfaceElevated,
@@ -316,45 +327,45 @@ fun HabitIconPickerDialog(
                     }
                 }
 
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f, fill = false)
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    if (filtered.isEmpty()) {
-                        Text(
-                            text = "Nenhum ícone encontrado para \"$search\".",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary,
-                            modifier = Modifier.padding(vertical = 12.dp)
-                        )
-                    } else {
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            filtered.forEach { option ->
-                                val isSelected = option.glyph == selectedGlyph
-                                Surface(
-                                    onClick = { onSelect(option.glyph) },
-                                    shape = CircleShape,
-                                    color = if (isSelected) accentColor else OledSurface,
-                                    border = BorderStroke(
-                                        width = if (isSelected) 2.dp else 1.dp,
-                                        color = if (isSelected) TextPrimary else OledBorder
-                                    ),
-                                    modifier = Modifier.size(48.dp)
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        NerdIcon(
-                                            glyph = option.glyph,
-                                            color = if (isSelected) contrastContentColor(accentColor) else TextPrimary,
-                                            size = 21.sp
-                                        )
-                                    }
+                if (filtered.isEmpty()) {
+                    Text(
+                        text = "Nenhum ícone encontrado para \"$search\".",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary,
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    )
+                } else {
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 48.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f, fill = false),
+                        contentPadding = PaddingValues(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(
+                            items = filtered,
+                            key = { it.glyph },
+                            contentType = { "nerd_icon_option" }
+                        ) { option ->
+                            val isSelected = option.glyph == selectedGlyph
+                            Surface(
+                                onClick = { onSelect(option.glyph) },
+                                shape = CircleShape,
+                                color = if (isSelected) accentColor else OledSurface,
+                                border = BorderStroke(
+                                    width = if (isSelected) 2.dp else 1.dp,
+                                    color = if (isSelected) TextPrimary else OledBorder
+                                ),
+                                modifier = Modifier.size(48.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    NerdIcon(
+                                        glyph = option.glyph,
+                                        color = if (isSelected) selectedForeground else TextPrimary,
+                                        size = 21.sp
+                                    )
                                 }
                             }
                         }
