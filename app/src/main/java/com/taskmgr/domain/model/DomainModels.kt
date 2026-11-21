@@ -21,6 +21,48 @@ enum class SnoozeOption(val minutes: Long?, val untilTomorrow: Boolean) {
     UNTIL_TOMORROW(null, true)
 }
 
+enum class TaskUrgency(
+    val titlePtBr: String,
+    val matrixTitlePtBr: String,
+    val shortLabelPtBr: String,
+    val colorNamePtBr: String,
+    val colorArgb: Long,
+    val sortOrder: Int
+) {
+    VERY_HIGH(
+        titlePtBr = "Urgência Muito Alta",
+        matrixTitlePtBr = "Importante e Urgente",
+        shortLabelPtBr = "Muito Alta",
+        colorNamePtBr = "Vermelho",
+        colorArgb = 0xFFEF4444L,
+        sortOrder = 0
+    ),
+    HIGH(
+        titlePtBr = "Urgência Alta",
+        matrixTitlePtBr = "Não importante e Urgente",
+        shortLabelPtBr = "Alta",
+        colorNamePtBr = "Amarelo",
+        colorArgb = 0xFFFBBF24L,
+        sortOrder = 1
+    ),
+    MEDIUM(
+        titlePtBr = "Urgência Média",
+        matrixTitlePtBr = "Importante e Não Urgente",
+        shortLabelPtBr = "Média",
+        colorNamePtBr = "Verde",
+        colorArgb = 0xFF22C55EL,
+        sortOrder = 2
+    ),
+    LOW(
+        titlePtBr = "Urgência Baixa",
+        matrixTitlePtBr = "Não importante e Não Urgente",
+        shortLabelPtBr = "Baixa",
+        colorNamePtBr = "Azul",
+        colorArgb = 0xFF3B82F6L,
+        sortOrder = 3
+    )
+}
+
 data class Moment(
     val id: Long = 0L,
     val name: String,
@@ -47,7 +89,8 @@ data class Task(
     val aggressiveFullScreen: Boolean = true,
     val vibrationEnabled: Boolean = true,
     val isCompleted: Boolean = false,
-    val snoozedUntilEpochMillis: Long? = null
+    val snoozedUntilEpochMillis: Long? = null,
+    val urgency: TaskUrgency = TaskUrgency.LOW
 )
 
 data class HabitGroup(

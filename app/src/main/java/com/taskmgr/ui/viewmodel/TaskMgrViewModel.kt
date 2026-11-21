@@ -119,6 +119,9 @@ class TaskMgrViewModel(private val container: AppContainer) : ViewModel() {
     val habitGroups: StateFlow<List<HabitGroup>> = container.habitGroupRepository.observeGroups()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    val allTasks: StateFlow<List<Task>> = container.taskRepository.observeAllTasks()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     val allHabits: StateFlow<List<Habit>> = container.habitRepository.observeHabits()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 

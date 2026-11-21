@@ -7,6 +7,7 @@ import com.taskmgr.domain.model.HabitLog
 import com.taskmgr.domain.model.Moment
 import com.taskmgr.domain.model.ReminderMode
 import com.taskmgr.domain.model.Task
+import com.taskmgr.domain.model.TaskUrgency
 
 fun MomentEntity.toDomain(): Moment {
     val mode = runCatching { ReminderMode.valueOf(reminderMode) }
@@ -75,7 +76,8 @@ fun TaskEntity.toDomain(): Task = Task(
     aggressiveFullScreen = aggressiveFullScreen,
     vibrationEnabled = vibrationEnabled,
     isCompleted = isCompleted,
-    snoozedUntilEpochMillis = snoozedUntilEpochMillis
+    snoozedUntilEpochMillis = snoozedUntilEpochMillis,
+    urgency = runCatching { TaskUrgency.valueOf(urgency) }.getOrElse { TaskUrgency.LOW }
 )
 
 fun Task.toEntity(completedAtEpochMillis: Long? = null): TaskEntity = TaskEntity(
@@ -91,7 +93,8 @@ fun Task.toEntity(completedAtEpochMillis: Long? = null): TaskEntity = TaskEntity
     repeatIntervalMinutes = repeatIntervalMinutes,
     isCompleted = isCompleted,
     completedAtEpochMillis = completedAtEpochMillis,
-    snoozedUntilEpochMillis = snoozedUntilEpochMillis
+    snoozedUntilEpochMillis = snoozedUntilEpochMillis,
+    urgency = urgency.name
 )
 
 fun HabitEntity.toDomain(): Habit = Habit(

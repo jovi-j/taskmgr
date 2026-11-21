@@ -592,7 +592,11 @@ private fun TaskCard(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        MetaBadge(glyph = NerdIcons.CheckboxMarkedOutline, text = "Tarefa")
+                        MetaBadge(
+                            glyph = NerdIcons.Flag,
+                            text = "${task.urgency.titlePtBr} (${task.urgency.matrixTitlePtBr})",
+                            tint = Color(task.urgency.colorArgb.toInt())
+                        )
                         task.scheduledMinutesOfDay?.let {
                             MetaBadge(glyph = NerdIcons.ClockOutline, text = formatMinutes(it), monospace = true)
                         }

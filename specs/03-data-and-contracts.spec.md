@@ -1,7 +1,7 @@
 # specs/03-data-and-contracts.spec.md
-version: 1.1.2
+version: 1.2.0
 status: implemented
-system: taskmgr (Android v0.0.3)
+system: taskmgr (Android v0.1.0)
 
 ## 1. Modelos de Domínio (`com.taskmgr.domain.model`)
 
@@ -27,6 +27,20 @@ enum class SnoozeOption(val minutes: Long?, val untilTomorrow: Boolean) {
     HOURS_1(60L, false),
     HOURS_3(180L, false),
     UNTIL_TOMORROW(null, true)
+}
+
+enum class TaskUrgency(
+    val titlePtBr: String,
+    val matrixTitlePtBr: String,
+    val shortLabelPtBr: String,
+    val colorNamePtBr: String,
+    val colorArgb: Long,
+    val sortOrder: Int
+) {
+    VERY_HIGH("Urgência Muito Alta", "Importante e Urgente", "Muito Alta", "Vermelho", 0xFFEF4444L, 0),
+    HIGH("Urgência Alta", "Não importante e Urgente", "Alta", "Amarelo", 0xFFFBBF24L, 1),
+    MEDIUM("Urgência Média", "Importante e Não Urgente", "Média", "Verde", 0xFF22C55EL, 2),
+    LOW("Urgência Baixa", "Não importante e Não Urgente", "Baixa", "Azul", 0xFF3B82F6L, 3)
 }
 
 data class Moment(
@@ -55,7 +69,8 @@ data class Task(
     val aggressiveFullScreen: Boolean = true,
     val vibrationEnabled: Boolean = true,
     val isCompleted: Boolean = false,
-    val snoozedUntilEpochMillis: Long? = null
+    val snoozedUntilEpochMillis: Long? = null,
+    val urgency: TaskUrgency = TaskUrgency.LOW
 )
 
 data class HabitGroup(
@@ -113,8 +128,8 @@ enum class ReminderItemType {
 }
 ```
 
-## 2. Banco de Dados Room (`TaskMgrDatabase` v3)
-- **Versão atual:** `3` (`MIGRATION_1_2` adiciona `habit_groups` e colunas `groupId`/`iconGlyph` em `habits`; `MIGRATION_2_3` adiciona `calendar_sync_events`).
+## 2. Banco de Dados Room (`TaskMgrDatabase` v4)
+- **Versão atual:** `4` (`MIGRATION_1_2` adiciona `habit_groups` e colunas `groupId`/`iconGlyph` em `habits`; `MIGRATION_2_3` adiciona `calendar_sync_events`; `MIGRATION_3_4` adiciona coluna `urgency TEXT NOT NULL DEFAULT 'LOW'` em `tasks`).
 - **Tabelas:**
     - `moments` (`MomentEntity`)
     - `habit_groups` (`HabitGroupEntity`)

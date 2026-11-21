@@ -571,7 +571,7 @@ private fun AboutSettingsCard() {
                         color = TextPrimary
                     )
                     Text(
-                        text = "Versão 0.0.3",
+                        text = "Versão 0.1.0",
                         style = MaterialTheme.typography.bodyMedium,
                         color = IndigoPrimary,
                         fontWeight = FontWeight.SemiBold

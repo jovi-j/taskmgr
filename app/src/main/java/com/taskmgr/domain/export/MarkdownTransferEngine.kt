@@ -10,6 +10,7 @@ import com.taskmgr.domain.model.HabitLog
 import com.taskmgr.domain.model.Moment
 import com.taskmgr.domain.model.ReminderMode
 import com.taskmgr.domain.model.Task
+import com.taskmgr.domain.model.TaskUrgency
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -195,7 +196,8 @@ object MarkdownTransferEngine {
                             aggressiveFullScreen = true,
                             vibrationEnabled = true,
                             isCompleted = isCompleted,
-                            snoozedUntilEpochMillis = null
+                            snoozedUntilEpochMillis = null,
+                            urgency = parsedLine.urgency
                         )
                     )
                 }
@@ -212,7 +214,8 @@ object MarkdownTransferEngine {
         val startEpochDay: Long,
         val endEpochDay: Long,
         val scheduledMinutesOfDay: Int?,
-        val inlineNote: String?
+        val inlineNote: String?,
+        val urgency: TaskUrgency = TaskUrgency.LOW
     )
 
     private fun extractCleanTaskFromGfmLine(rawBody: String, defaultEpochDay: Long): ParsedGfmLine {
@@ -252,12 +255,21 @@ object MarkdownTransferEngine {
             scheduledMinutes = h * 60 + m
         }
 
+        val urgencyBadgeMatch = Regex("""`⚡\s*([^`]+)`""").find(working)
+        val parsedUrgency = urgencyBadgeMatch?.groupValues?.getOrNull(1)?.trim()?.let { label ->
+            TaskUrgency.entries.firstOrNull {
+                it.titlePtBr.equals(label, ignoreCase = true) ||
+                    it.matrixTitlePtBr.equals(label, ignoreCase = true)
+            }
+        } ?: TaskUrgency.LOW
+
         // Clean formatting badges (`⏰ 08:00`, `📅 2026-11-20`, `**title**`, etc.)
         var cleanTitle = working
             .replace(Regex("""`⏰\s*\d{2}:\d{2}`"""), "")
             .replace(Regex("""`📅\s*\d{4}-\d{2}-\d{2}(?:\s*(?:\.\.|a|->|→)\s*\d{4}-\d{2}-\d{2})?`"""), "")
             .replace(Regex("""`⏱️[^`]+`"""), "")
             .replace(Regex("""`🔁[^`]+`"""), "")
+            .replace(Regex("""`⚡[^`]+`"""), "")
             .trim()
 
         if (cleanTitle.startsWith("**") && cleanTitle.endsWith("**") && cleanTitle.length > 4) {
@@ -280,7 +292,8 @@ object MarkdownTransferEngine {
             startEpochDay = startDay,
             endEpochDay = endDay,
             scheduledMinutesOfDay = scheduledMinutes,
-            inlineNote = inlineNote
+            inlineNote = inlineNote,
+            urgency = parsedUrgency
         )
     }
 
@@ -354,6 +367,7 @@ object MarkdownTransferEngine {
                 task.repeatIntervalMinutes?.let { rep ->
                     badges.add("`🔁 ${formatIntervalShort(rep)}`")
                 }
+                badges.add("`⚡ ${task.urgency.titlePtBr}`")
 
                 val badgeSuffix = if (badges.isNotEmpty()) " " + badges.joinToString(" ") else ""
                 sb.appendLine("- [$check] **${escapeMarkdownText(task.title)}**$badgeSuffix")
@@ -602,7 +616,8 @@ object MarkdownTransferEngine {
                 "fullScreen" to task.aggressiveFullScreen.toString(),
                 "vibrate" to task.vibrationEnabled.toString(),
                 "completed" to task.isCompleted.toString(),
-                "snoozed" to (task.snoozedUntilEpochMillis?.toString() ?: "")
+                "snoozed" to (task.snoozedUntilEpochMillis?.toString() ?: ""),
+                "urgency" to task.urgency.name
             )
         )
     }
@@ -633,7 +648,10 @@ object MarkdownTransferEngine {
             aggressiveFullScreen = fullScreen,
             vibrationEnabled = vibrate,
             isCompleted = completed,
-            snoozedUntilEpochMillis = snoozed
+            snoozedUntilEpochMillis = snoozed,
+            urgency = map["urgency"]?.let {
+                runCatching { TaskUrgency.valueOf(it) }.getOrNull()
+            } ?: TaskUrgency.LOW
         )
     }
 

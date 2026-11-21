@@ -74,6 +74,7 @@ import com.taskmgr.domain.model.Habit
 import com.taskmgr.domain.model.HabitGroup
 import com.taskmgr.domain.model.Moment
 import com.taskmgr.domain.model.Task
+import com.taskmgr.domain.model.TaskUrgency
 import com.taskmgr.scheduler.PermissionHelper
 import com.taskmgr.ui.components.HabitGroupEditorDialog
 import com.taskmgr.ui.components.MomentEditorDialog
@@ -81,6 +82,7 @@ import com.taskmgr.ui.components.NerdIcon
 import com.taskmgr.ui.components.NerdIcons
 import com.taskmgr.ui.components.OnboardingPermissionsDialog
 import com.taskmgr.ui.screens.CalendarScreen
+import com.taskmgr.ui.screens.EisenhowerMatrixScreen
 import com.taskmgr.ui.screens.HabitEditorScreen
 import com.taskmgr.ui.screens.HabitGroupsScreen
 import com.taskmgr.ui.screens.MomentsScreen
@@ -97,13 +99,17 @@ import java.time.LocalDate
 enum class MainTab(val label: String) {
     TODAY("Hoje"),
     CALENDAR("Calendário"),
+    MATRIX("Matriz"),
     GROUPS("Grupos"),
     MOMENTS("Momentos"),
     SETTINGS("Config")
 }
 
 private sealed interface ActiveEditor {
-    data class TaskEditor(val task: Task?) : ActiveEditor
+    data class TaskEditor(
+        val task: Task?,
+        val defaultUrgency: TaskUrgency = TaskUrgency.LOW
+    ) : ActiveEditor
     data class HabitEditor(val habit: Habit?, val defaultGroupId: Long? = null) : ActiveEditor
 }
 
@@ -258,6 +264,7 @@ fun MainScreen(viewModel: TaskMgrViewModel) {
     val calendarState by viewModel.calendarUiState.collectAsStateWithLifecycle()
     val dayDetailState by viewModel.dayDetailUiState.collectAsStateWithLifecycle()
     val habitRetentionSummaries by viewModel.habitRetentionSummaries.collectAsStateWithLifecycle()
+    val allTasks by viewModel.allTasks.collectAsStateWithLifecycle()
     val allHabitsWithStats by viewModel.allHabitsWithStats.collectAsStateWithLifecycle()
     val moments by viewModel.moments.collectAsStateWithLifecycle()
     val habitGroups by viewModel.habitGroups.collectAsStateWithLifecycle()
@@ -287,6 +294,7 @@ fun MainScreen(viewModel: TaskMgrViewModel) {
                 TaskEditorScreen(
                     initialTask = targetEditor.task,
                     defaultEpochDay = todayState.selectedEpochDay,
+                    defaultUrgency = targetEditor.defaultUrgency,
                     moments = moments,
                     onBack = { activeEditor = null },
                     onSave = { task ->
@@ -344,15 +352,27 @@ fun MainScreen(viewModel: TaskMgrViewModel) {
                                 },
                                 actions = {
                                     IconButton(onClick = { currentTab = MainTab.SETTINGS }) {
-                                        NerdIcon(
-                                            glyph = if (permissionStatus.allCriticalGranted) NerdIcons.ShieldCheck else NerdIcons.BellAlert,
-                                            color = if (permissionStatus.allCriticalGranted) {
-                                                IndigoPrimary
-                                            } else {
-                                                PriorityHigh
-                                            },
-                                            size = 22.sp
-                                        )
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            if (!permissionStatus.allCriticalGranted) {
+                                                NerdIcon(
+                                                    glyph = NerdIcons.AlertCircle,
+                                                    color = PriorityHigh,
+                                                    size = 15.sp
+                                                )
+                                            }
+                                            NerdIcon(
+                                                glyph = NerdIcons.Cog,
+                                                color = when {
+                                                    !permissionStatus.allCriticalGranted -> PriorityHigh
+                                                    currentTab == MainTab.SETTINGS -> IndigoPrimary
+                                                    else -> TextSecondary
+                                                },
+                                                size = 22.sp
+                                            )
+                                        }
                                     }
                                 }
                             )
@@ -385,6 +405,13 @@ fun MainScreen(viewModel: TaskMgrViewModel) {
                                     colors = navColors
                                 )
                                 NavigationBarItem(
+                                    selected = currentTab == MainTab.MATRIX,
+                                    onClick = { currentTab = MainTab.MATRIX },
+                                    icon = { NerdIcon(glyph = NerdIcons.Layers, size = 20.sp) },
+                                    label = { Text(MainTab.MATRIX.label, maxLines = 1) },
+                                    colors = navColors
+                                )
+                                NavigationBarItem(
                                     selected = currentTab == MainTab.GROUPS,
                                     onClick = { currentTab = MainTab.GROUPS },
                                     icon = { NerdIcon(glyph = NerdIcons.Tag, size = 20.sp) },
@@ -396,13 +423,6 @@ fun MainScreen(viewModel: TaskMgrViewModel) {
                                     onClick = { currentTab = MainTab.MOMENTS },
                                     icon = { NerdIcon(glyph = NerdIcons.TimerOutline, size = 20.sp) },
                                     label = { Text(MainTab.MOMENTS.label, maxLines = 1) },
-                                    colors = navColors
-                                )
-                                NavigationBarItem(
-                                    selected = currentTab == MainTab.SETTINGS,
-                                    onClick = { currentTab = MainTab.SETTINGS },
-                                    icon = { NerdIcon(glyph = NerdIcons.Cog, size = 20.sp) },
-                                    label = { Text(MainTab.SETTINGS.label, maxLines = 1) },
                                     colors = navColors
                                 )
                             }
@@ -513,6 +533,24 @@ fun MainScreen(viewModel: TaskMgrViewModel) {
                                     onToggleTask = viewModel::toggleTaskCompleted,
                                     onUpdateHabitLogManual = viewModel::updateHabitLogManual,
                                     onIncludeHabitFromPastDay = viewModel::includeHabitFromPastDay
+                                )
+                            }
+
+                            MainTab.MATRIX -> {
+                                EisenhowerMatrixScreen(
+                                    tasks = allTasks,
+                                    onCreateTaskInQuadrant = { urgency ->
+                                        activeEditor = ActiveEditor.TaskEditor(
+                                            task = null,
+                                            defaultUrgency = urgency
+                                        )
+                                    },
+                                    onToggleTask = viewModel::toggleTaskCompleted,
+                                    onEditTask = { task ->
+                                        activeEditor = ActiveEditor.TaskEditor(task)
+                                    },
+                                    onDeleteTask = viewModel::deleteTask,
+                                    onTestTaskAlarm = viewModel::triggerTestReminder
                                 )
                             }
 

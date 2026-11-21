@@ -11,6 +11,7 @@ import com.taskmgr.domain.model.HabitLog
 import com.taskmgr.domain.model.Moment
 import com.taskmgr.domain.model.ReminderMode
 import com.taskmgr.domain.model.Task
+import com.taskmgr.domain.model.TaskUrgency
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -19,6 +20,32 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 class MarkdownTransferAndCalendarSyncTest {
+
+    @Test
+    fun taskUrgency_defaultsToLow_andMatchesEisenhowerQuadrants() {
+        val day = LocalDate.of(2026, 11, 20).toEpochDay()
+        val defaultTask = Task(
+            title = "Tarefa padrão",
+            startEpochDay = day,
+            endEpochDay = day
+        )
+        assertEquals(TaskUrgency.LOW, defaultTask.urgency)
+        assertEquals("Urgência Baixa", TaskUrgency.LOW.titlePtBr)
+        assertEquals("Não importante e Não Urgente", TaskUrgency.LOW.matrixTitlePtBr)
+        assertEquals("Azul", TaskUrgency.LOW.colorNamePtBr)
+
+        assertEquals("Urgência Muito Alta", TaskUrgency.VERY_HIGH.titlePtBr)
+        assertEquals("Importante e Urgente", TaskUrgency.VERY_HIGH.matrixTitlePtBr)
+        assertEquals("Vermelho", TaskUrgency.VERY_HIGH.colorNamePtBr)
+
+        assertEquals("Urgência Alta", TaskUrgency.HIGH.titlePtBr)
+        assertEquals("Não importante e Urgente", TaskUrgency.HIGH.matrixTitlePtBr)
+        assertEquals("Amarelo", TaskUrgency.HIGH.colorNamePtBr)
+
+        assertEquals("Urgência Média", TaskUrgency.MEDIUM.titlePtBr)
+        assertEquals("Importante e Não Urgente", TaskUrgency.MEDIUM.matrixTitlePtBr)
+        assertEquals("Verde", TaskUrgency.MEDIUM.colorNamePtBr)
+    }
 
     @Test
     fun taskMgrMarkdown_roundTrip_preservesMomentsGroupsTasksHabitsAndLogs() {
@@ -52,7 +79,8 @@ class MarkdownTransferAndCalendarSyncTest {
             repeatIntervalMinutes = 90,
             aggressiveFullScreen = true,
             vibrationEnabled = false,
-            isCompleted = false
+            isCompleted = false,
+            urgency = TaskUrgency.VERY_HIGH
         )
         val habit = Habit(
             id = 40L,

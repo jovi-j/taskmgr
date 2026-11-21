@@ -80,6 +80,7 @@ import com.taskmgr.domain.model.Habit
 import com.taskmgr.domain.model.HabitGroup
 import com.taskmgr.domain.model.Moment
 import com.taskmgr.domain.model.Task
+import com.taskmgr.domain.model.TaskUrgency
 import com.taskmgr.ui.components.DatePickerModalDialog
 import com.taskmgr.ui.components.DateSelectorField
 import com.taskmgr.ui.components.DaysOfWeekSelector
@@ -228,6 +229,79 @@ private fun TaskDetailsSection(
             colors = textFieldColors,
             modifier = Modifier.fillMaxWidth()
         )
+    }
+}
+
+@Composable
+private fun TaskUrgencySection(
+    selectedUrgency: TaskUrgency,
+    onSelectUrgency: (TaskUrgency) -> Unit
+) {
+    val options = remember { TaskUrgency.entries.sortedBy { it.sortOrder } }
+    EditorSectionCard(title = "Matriz de Eisenhower (Urgência)", glyph = NerdIcons.Layers) {
+        Text(
+            text = "Toda tarefa inicia em Urgência Baixa (Não importante e Não Urgente) por padrão.",
+            style = MaterialTheme.typography.bodySmall,
+            color = TextSecondary
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            options.forEach { option ->
+                val isSelected = selectedUrgency == option
+                val optionColor = Color(option.colorArgb.toInt())
+                Surface(
+                    onClick = { onSelectUrgency(option) },
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (isSelected) optionColor.copy(alpha = 0.16f) else OledSurfaceElevated,
+                    border = BorderStroke(
+                        width = if (isSelected) 1.5.dp else 1.dp,
+                        color = if (isSelected) optionColor else OledBorder
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(optionColor),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            NerdIcon(
+                                glyph = urgencyGlyph(option),
+                                color = Color(0xFF0B0F17),
+                                size = 16.sp
+                            )
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = option.matrixTitlePtBr,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+                            Text(
+                                text = "${option.titlePtBr} • ${option.colorNamePtBr}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = optionColor
+                            )
+                        }
+                        if (isSelected) {
+                            NerdIcon(
+                                glyph = NerdIcons.CheckCircle,
+                                color = optionColor,
+                                size = 18.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -388,6 +462,7 @@ private fun TaskAlertsSection(
 fun TaskEditorScreen(
     initialTask: Task?,
     defaultEpochDay: Long,
+    defaultUrgency: TaskUrgency = TaskUrgency.LOW,
     moments: List<Moment>,
     onBack: () -> Unit,
     onSave: (Task) -> Unit
@@ -397,6 +472,7 @@ fun TaskEditorScreen(
     val todayEpochDay = remember { LocalDate.now().toEpochDay() }
     var title by remember { mutableStateOf(initialTask?.title ?: "") }
     var notes by remember { mutableStateOf(initialTask?.notes ?: "") }
+    var selectedUrgency by remember { mutableStateOf(initialTask?.urgency ?: defaultUrgency) }
     var startEpochDay by remember { mutableLongStateOf(initialTask?.startEpochDay ?: defaultEpochDay) }
     var durationDaysText by remember {
         mutableStateOf(
@@ -445,7 +521,8 @@ fun TaskEditorScreen(
                 aggressiveFullScreen = aggressiveFullScreen,
                 vibrationEnabled = vibrationEnabled,
                 isCompleted = initialTask?.isCompleted ?: false,
-                snoozedUntilEpochMillis = initialTask?.snoozedUntilEpochMillis
+                snoozedUntilEpochMillis = initialTask?.snoozedUntilEpochMillis,
+                urgency = selectedUrgency
             )
         )
     }
@@ -542,6 +619,13 @@ fun TaskEditorScreen(
                         if (errorMessage != null) errorMessage = null
                     },
                     onNotesChange = { notes = it }
+                )
+            }
+
+            item(key = "task_urgency_section", contentType = "task_urgency") {
+                TaskUrgencySection(
+                    selectedUrgency = selectedUrgency,
+                    onSelectUrgency = { selectedUrgency = it }
                 )
             }
 
