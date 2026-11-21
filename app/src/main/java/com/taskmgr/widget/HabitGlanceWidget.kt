@@ -269,10 +269,10 @@ private fun ConfiguredHabitWidgetContent(
 
         Spacer(modifier = GlanceModifier.height(2.dp))
 
-        // Habit title
+        // Habit title (up to 2 lines with ellipsis overflow handled automatically by RemoteViews TextView)
         Text(
             text = snapshot.title,
-            maxLines = 1,
+            maxLines = 2,
             style = TextStyle(
                 color = fixedColorProvider(fgColor),
                 fontSize = 15.sp,
