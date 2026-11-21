@@ -16,7 +16,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         HabitLogEntity::class,
         CalendarSyncEventEntity::class
     ],
-    version = 3,
+    version = 5,
     exportSchema = false
 )
 abstract class TaskMgrDatabase : RoomDatabase() {
@@ -105,6 +105,18 @@ abstract class TaskMgrDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `urgency` TEXT NOT NULL DEFAULT 'LOW'")
+            }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `advanceRemindersSpec` TEXT")
+            }
+        }
+
         @Volatile
         private var INSTANCE: TaskMgrDatabase? = null
 
@@ -115,7 +127,7 @@ abstract class TaskMgrDatabase : RoomDatabase() {
                     TaskMgrDatabase::class.java,
                     "taskmgr.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .fallbackToDestructiveMigration(dropAllTables = true)
                     .build()
                     .also { INSTANCE = it }

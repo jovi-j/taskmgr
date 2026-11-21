@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -118,6 +119,9 @@ class TaskMgrViewModel(private val container: AppContainer) : ViewModel() {
     val habitGroups: StateFlow<List<HabitGroup>> = container.habitGroupRepository.observeGroups()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    val allTasks: StateFlow<List<Task>> = container.taskRepository.observeAllTasks()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     val allHabits: StateFlow<List<Habit>> = container.habitRepository.observeHabits()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -144,7 +148,8 @@ class TaskMgrViewModel(private val container: AppContainer) : ViewModel() {
                     group = habit.groupId?.let { groupsById[it] }
                 )
             }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    }.flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val allHabitsWithStats: StateFlow<List<HabitWithLog>> = combine(
         allHabits,
@@ -164,7 +169,8 @@ class TaskMgrViewModel(private val container: AppContainer) : ViewModel() {
                 group = habit.groupId?.let { groupsById[it] }
             )
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    }.flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val todayUiState: StateFlow<TodayUiState> = combine(
         _selectedEpochDay,
@@ -200,7 +206,8 @@ class TaskMgrViewModel(private val container: AppContainer) : ViewModel() {
             tasks = taskList,
             habits = activeHabitsForDay
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TodayUiState())
+    }.flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TodayUiState())
 
     val calendarUiState: StateFlow<CalendarUiState> = _selectedMonth.flatMapLatest { month ->
         val startDay = month.atDay(1).toEpochDay()
@@ -251,7 +258,8 @@ class TaskMgrViewModel(private val container: AppContainer) : ViewModel() {
             }
             CalendarUiState(month = month, daySummaries = summaries)
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CalendarUiState())
+    }.flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CalendarUiState())
 
     val dayDetailUiState: StateFlow<DayDetailUiState?> = _dayDetailEpochDay.flatMapLatest { day ->
         if (day == null) {
@@ -293,7 +301,8 @@ class TaskMgrViewModel(private val container: AppContainer) : ViewModel() {
                 )
             }
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    }.flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun dismissOnboarding() {
         container.vibrationController.setOnboardingCompleted()
@@ -432,7 +441,8 @@ class TaskMgrViewModel(private val container: AppContainer) : ViewModel() {
             val payload = HabitCompletionCalculator.buildTaskPayload(
                 task = task,
                 epochDay = _selectedEpochDay.value,
-                momentName = momentName
+                momentName = momentName,
+                isAdvanceReminder = true
             )
             container.alertDispatcher.triggerFullScreenReminder(payload)
         }

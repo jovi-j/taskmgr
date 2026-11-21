@@ -24,6 +24,7 @@ class ReminderAlarmReceiver : BroadcastReceiver() {
         val itemId = intent.getLongExtra(EXTRA_ITEM_ID, -1L)
         if (itemId <= 0L) return
         val epochDay = intent.getLongExtra(EXTRA_EPOCH_DAY, LocalDate.now().toEpochDay())
+        val isAdvanceReminder = intent.getBooleanExtra(EXTRA_IS_ADVANCE_REMINDER, false)
 
         val app = context.applicationContext as? TaskMgrApplication ?: return
         val container = app.container
@@ -44,7 +45,7 @@ class ReminderAlarmReceiver : BroadcastReceiver() {
                     ReminderItemType.TASK -> {
                         val task = container.database.taskDao().getById(itemId)?.toDomain()
                         // INV-01: Completed tasks never trigger alarms
-                        if (task == null || task.isCompleted) {
+                        if (task == null || task.isCompleted || !task.hasDate) {
                             container.reminderScheduler.cancelTaskReminders(itemId)
                             return@launch
                         }
@@ -57,7 +58,8 @@ class ReminderAlarmReceiver : BroadcastReceiver() {
                         val payload = HabitCompletionCalculator.buildTaskPayload(
                             task = task,
                             epochDay = epochDay,
-                            momentName = moment?.name
+                            momentName = moment?.name,
+                            isAdvanceReminder = isAdvanceReminder
                         )
                         val aggressive = task.aggressiveFullScreen && (moment?.aggressiveFullScreen ?: true)
                         if (aggressive) {
@@ -116,5 +118,6 @@ class ReminderAlarmReceiver : BroadcastReceiver() {
         const val EXTRA_ITEM_TYPE = "extra_item_type"
         const val EXTRA_ITEM_ID = "extra_item_id"
         const val EXTRA_EPOCH_DAY = "extra_epoch_day"
+        const val EXTRA_IS_ADVANCE_REMINDER = "extra_is_advance_reminder"
     }
 }

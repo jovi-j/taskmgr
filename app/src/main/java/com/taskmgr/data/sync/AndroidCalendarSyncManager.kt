@@ -297,10 +297,11 @@ class AndroidCalendarSyncManager(
         var deletedCount = 0
         var pulledCount = 0
 
-        // 1. Delete calendar events for tasks that no longer exist in Room
+        // 1. Delete calendar events for tasks that no longer exist in Room or no longer have a date
         val initialTasksById = taskDao.getAll().associateBy { it.id }
         for ((taskId, mapping) in existingMappings) {
-            if (!initialTasksById.containsKey(taskId)) {
+            val entity = initialTasksById[taskId]
+            if (entity == null || entity.startEpochDay < 0L) {
                 deleteCalendarEventById(mapping.eventId)
                 calendarSyncDao.delete(TaskCalendarEventMapper.ITEM_TYPE_TASK, taskId)
                 deletedCount++
@@ -310,6 +311,7 @@ class AndroidCalendarSyncManager(
         // 2. Bi-directional check: if local task has NOT changed since last sync, check if the user
         // edited the event inside Google/Android Calendar and pull the updated title/time/date.
         for ((taskId, taskEntity) in initialTasksById) {
+            if (taskEntity.startEpochDay < 0L) continue
             val mapping = existingMappings[taskId] ?: continue
             if (mapping.calendarId != targetCalendar.id) continue
             val task = taskEntity.toDomain()
@@ -366,7 +368,7 @@ class AndroidCalendarSyncManager(
         }
 
         // 3. Push local tasks (insert new or update changed/missing events)
-        val currentTasks = taskDao.getAll().map { it.toDomain() }
+        val currentTasks = taskDao.getAll().map { it.toDomain() }.filter { it.hasDate }
         val refreshedMappings = calendarSyncDao.getAll()
             .filter { it.itemType == TaskCalendarEventMapper.ITEM_TYPE_TASK }
             .associateBy { it.itemId }

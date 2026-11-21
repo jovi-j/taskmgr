@@ -58,7 +58,7 @@ fun MomentsScreen(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item(key = "moments_header") {
+        item(key = "moments_header", contentType = "moments_header") {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -89,11 +89,9 @@ fun MomentsScreen(
         }
 
         if (moments.isEmpty()) {
-            item(key = "moments_empty") {
+            item(key = "moments_empty", contentType = "moments_empty") {
                 Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .animateItem(),
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = OledSurface),
                     border = BorderStroke(1.dp, OledBorder)
@@ -125,18 +123,21 @@ fun MomentsScreen(
                 }
             }
         } else {
-            items(moments, key = { "moment_${it.id}" }) { moment ->
+            items(
+                items = moments,
+                key = { "moment_${it.id}" },
+                contentType = { "moment_card" }
+            ) { moment ->
                 MomentCard(
                     moment = moment,
                     onEdit = { onEditMoment(moment) },
                     onToggleEnabled = { onToggleMomentEnabled(moment) },
-                    onDelete = { onDeleteMoment(moment.id) },
-                    modifier = Modifier.animateItem()
+                    onDelete = { onDeleteMoment(moment.id) }
                 )
             }
         }
 
-        item(key = "moments_bottom_spacer") {
+        item(key = "moments_bottom_spacer", contentType = "spacer") {
             Spacer(modifier = Modifier.height(24.dp))
         }
     }

@@ -22,6 +22,9 @@ jobs:
           java-version: '21'
           cache: 'gradle'
 
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+
       - name: Build APK
         run: ./gradlew :app:assembleDebug --no-daemon
 
@@ -37,12 +40,16 @@ jobs:
             ## taskmgr ${{ github.ref_name }}
 
             ### Destaques desta versão
+            - **Matriz de Eisenhower 2x2 & Planejar o Dia:**
+              - Visualização em 4 quadrantes (Importante e Urgente - Vermelho, Importante e Não Urgente - Amarelo, Não Importante e Urgente - Verde, Não Importante e Não Urgente - Azul).
+              - Tarefas sem obrigatoriedade de data e horário (Caixa de entrada em Urgência Baixa por padrão, ou na urgência do quadrante clicado).
+              - Modal **"Planejar o dia"** na Matriz para revisar e delegar tarefas sem data/hora para uma data e quadrante específicos.
+            - **Lembretes Antecipados Customizáveis para Tarefas:**
+              - Configuração de múltiplos lembretes X tempo antes do horário do evento (dias, horas, minutos antes e frequência de repetição).
+              - Notificação de tela inteira para tarefas apenas com a opção **"Sim"** (sem opções de soneca), mantendo o usuário ciente da chegada do evento.
             - **Interface Focus OLED Dark (`#000000`)** com Jetpack Compose, Material 3, transições animadas e fontes Ubuntu Sans Nerd Font.
-            - **5 Abas Principais:** Hoje, Calendário (com edição retroativa e cálculo de sequências/recordes), Grupos de Hábitos (com mais de 180 ícones Nerd Font pesquisáveis e fundo circular colorido), Momentos (com repetição `H:` / `M:` e fim às `00:00` no mesmo dia) e Configurações divididas em subtelas.
-            - **Alarmes em Tela Cheia & Soneca:** Disparo sobre a tela bloqueada com vibração configurável e 6 opções de soneca (`5m`, `10m`, `30m`, `1h`, `3h`, `Até amanhã`).
             - **Exportação, Sincronização e Importação:**
-              - Sincronização de tarefas com o Google Agenda / Calendário do Android.
-              - Backup e restauração completa via `.taskmgr.md`.
-              - Exportação e importação de checklists GitHub Flavored Markdown (`.md`) para Notion e Obsidian.
+              - Sincronização de tarefas agendadas com o Google Agenda / Calendário do Android.
+              - Backup e restauração completa via `.taskmgr.md` e checklists GFM (`.md`) para Notion e Obsidian.
           files: |
             taskmgr-${{ github.ref_name }}.apk

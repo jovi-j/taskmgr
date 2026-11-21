@@ -102,6 +102,8 @@ data class FullScreenReminderUiState(
     val progressText: String?,
     val progressFraction: Float?,
     val primaryButtonLabel: String,
+    val showSnoozeOptions: Boolean = true,
+    val acknowledgeOnly: Boolean = false,
     val isFinished: Boolean = false
 )
 
@@ -157,7 +159,13 @@ class FullScreenReminderActivity : ComponentActivity() {
             val scope = rememberCoroutineScope()
             val db = container.database
 
-            val uiStateFlow = remember(activePayload.itemType, activePayload.itemId, activePayload.epochDay) {
+            val uiStateFlow = remember(
+                activePayload.itemType,
+                activePayload.itemId,
+                activePayload.epochDay,
+                activePayload.showSnoozeOptions,
+                activePayload.acknowledgeOnly
+            ) {
                 when (activePayload.itemType) {
                     ReminderItemType.TASK -> {
                         combine(
@@ -171,9 +179,11 @@ class FullScreenReminderActivity : ComponentActivity() {
                                     epochDay = activePayload.epochDay,
                                     title = activePayload.title,
                                     momentName = activePayload.momentName,
-                                    progressText = null,
+                                    progressText = activePayload.progressText,
                                     progressFraction = null,
-                                    primaryButtonLabel = "Sim (Concluir)",
+                                    primaryButtonLabel = "Sim",
+                                    showSnoozeOptions = false,
+                                    acknowledgeOnly = activePayload.acknowledgeOnly,
                                     isFinished = true
                                 )
                             } else {
@@ -181,15 +191,23 @@ class FullScreenReminderActivity : ComponentActivity() {
                                 val momentName = task.momentId?.let { id ->
                                     moments.firstOrNull { it.id == id }?.name
                                 } ?: activePayload.momentName
+                                val refreshedPayload = HabitCompletionCalculator.buildTaskPayload(
+                                    task = task,
+                                    epochDay = activePayload.epochDay,
+                                    momentName = momentName,
+                                    isAdvanceReminder = activePayload.acknowledgeOnly
+                                )
                                 FullScreenReminderUiState(
                                     itemType = ReminderItemType.TASK,
                                     itemId = task.id,
                                     epochDay = activePayload.epochDay,
                                     title = task.title,
                                     momentName = momentName,
-                                    progressText = null,
+                                    progressText = refreshedPayload.progressText ?: activePayload.progressText,
                                     progressFraction = null,
-                                    primaryButtonLabel = "Sim (Concluir)",
+                                    primaryButtonLabel = "Sim",
+                                    showSnoozeOptions = false,
+                                    acknowledgeOnly = activePayload.acknowledgeOnly,
                                     isFinished = task.isCompleted
                                 )
                             }
@@ -212,6 +230,8 @@ class FullScreenReminderActivity : ComponentActivity() {
                                     progressText = activePayload.progressText,
                                     progressFraction = null,
                                     primaryButtonLabel = activePayload.incrementButtonLabel ?: "Sim (Concluir)",
+                                    showSnoozeOptions = true,
+                                    acknowledgeOnly = false,
                                     isFinished = true
                                 )
                             } else {
@@ -234,6 +254,8 @@ class FullScreenReminderActivity : ComponentActivity() {
                                     progressText = HabitCompletionCalculator.formatProgressText(habit, accumulated),
                                     progressFraction = fraction,
                                     primaryButtonLabel = HabitCompletionCalculator.formatIncrementButtonLabel(habit),
+                                    showSnoozeOptions = true,
+                                    acknowledgeOnly = false,
                                     isFinished = (log?.isCompleted == true) || (log?.dismissedForDay == true)
                                 )
                             }
@@ -250,7 +272,10 @@ class FullScreenReminderActivity : ComponentActivity() {
                 momentName = activePayload.momentName,
                 progressText = activePayload.progressText,
                 progressFraction = null,
-                primaryButtonLabel = activePayload.incrementButtonLabel ?: "Sim (Concluir)"
+                primaryButtonLabel = activePayload.incrementButtonLabel
+                    ?: if (activePayload.itemType == ReminderItemType.TASK) "Sim" else "Sim (Concluir)",
+                showSnoozeOptions = activePayload.showSnoozeOptions,
+                acknowledgeOnly = activePayload.acknowledgeOnly
             )
 
             val uiState by uiStateFlow.collectAsState(initial = fallbackState)
@@ -272,7 +297,12 @@ class FullScreenReminderActivity : ComponentActivity() {
                             val now = System.currentTimeMillis()
                             when (uiState.itemType) {
                                 ReminderItemType.TASK -> {
-                                    container.taskRepository.setCompleted(uiState.itemId, true, now)
+                                    if (uiState.acknowledgeOnly) {
+                                        container.reminderScheduler.scheduleNextForTask(uiState.itemId)
+                                        finishAndRemoveTaskSafely()
+                                    } else {
+                                        container.taskRepository.setCompleted(uiState.itemId, true, now)
+                                    }
                                 }
                                 ReminderItemType.HABIT -> {
                                     container.habitRepository.incrementHabit(
@@ -357,7 +387,12 @@ class FullScreenReminderActivity : ComponentActivity() {
             momentName = intent.getStringExtra(EXTRA_MOMENT_NAME),
             progressText = intent.getStringExtra(EXTRA_PROGRESS_TEXT),
             incrementButtonLabel = intent.getStringExtra(EXTRA_INCREMENT_LABEL),
-            vibrationEnabled = intent.getBooleanExtra(EXTRA_VIBRATION_ENABLED, true)
+            vibrationEnabled = intent.getBooleanExtra(EXTRA_VIBRATION_ENABLED, true),
+            showSnoozeOptions = intent.getBooleanExtra(
+                EXTRA_SHOW_SNOOZE_OPTIONS,
+                itemType == ReminderItemType.HABIT
+            ),
+            acknowledgeOnly = intent.getBooleanExtra(EXTRA_ACKNOWLEDGE_ONLY, false)
         )
     }
 
@@ -370,6 +405,8 @@ class FullScreenReminderActivity : ComponentActivity() {
         const val EXTRA_PROGRESS_TEXT = "extra_progress_text"
         const val EXTRA_INCREMENT_LABEL = "extra_increment_label"
         const val EXTRA_VIBRATION_ENABLED = "extra_vibration_enabled"
+        const val EXTRA_SHOW_SNOOZE_OPTIONS = "extra_show_snooze_options"
+        const val EXTRA_ACKNOWLEDGE_ONLY = "extra_acknowledge_only"
 
         fun createIntent(context: Context, payload: FullScreenReminderPayload): Intent {
             return Intent(context, FullScreenReminderActivity::class.java).apply {
@@ -386,6 +423,8 @@ class FullScreenReminderActivity : ComponentActivity() {
                 putExtra(EXTRA_PROGRESS_TEXT, payload.progressText)
                 putExtra(EXTRA_INCREMENT_LABEL, payload.incrementButtonLabel)
                 putExtra(EXTRA_VIBRATION_ENABLED, payload.vibrationEnabled)
+                putExtra(EXTRA_SHOW_SNOOZE_OPTIONS, payload.showSnoozeOptions)
+                putExtra(EXTRA_ACKNOWLEDGE_ONLY, payload.acknowledgeOnly)
             }
         }
     }
@@ -529,12 +568,12 @@ fun FullScreenReminderScreen(
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             NerdIcon(
-                                glyph = NerdIcons.Trophy,
+                                glyph = if (uiState.itemType == ReminderItemType.HABIT) NerdIcons.Trophy else NerdIcons.CalendarToday,
                                 color = TextSecondary,
                                 size = 16.sp
                             )
                             Text(
-                                text = "Progresso hoje",
+                                text = if (uiState.itemType == ReminderItemType.HABIT) "Progresso hoje" else "Data e horário agendado",
                                 style = MaterialTheme.typography.labelLarge,
                                 color = TextSecondary
                             )
@@ -592,78 +631,80 @@ fun FullScreenReminderScreen(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                if (uiState.showSnoozeOptions) {
+                    Spacer(modifier = Modifier.height(24.dp))
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    NerdIcon(
-                        glyph = NerdIcons.TimerOutline,
-                        color = TextSecondary,
-                        size = 18.sp
-                    )
-                    Text(
-                        text = "Soneca",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = TextSecondary
-                    )
-                }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        NerdIcon(
+                            glyph = NerdIcons.TimerOutline,
+                            color = TextSecondary,
+                            size = 18.sp
+                        )
+                        Text(
+                            text = "Soneca",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = TextSecondary
+                        )
+                    }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    SnoozeOption.entries.forEach { option ->
-                        if (option == SnoozeOption.UNTIL_TOMORROW) {
-                            OutlinedButton(
-                                onClick = { onSnooze(option) },
-                                shape = RoundedCornerShape(12.dp),
-                                border = BorderStroke(1.dp, OledBorder),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    containerColor = OledSurfaceElevated,
-                                    contentColor = PriorityHigh
-                                )
-                            ) {
-                                NerdIcon(
-                                    glyph = NerdIcons.BellOffOutline,
-                                    color = PriorityHigh,
-                                    size = 15.sp
-                                )
-                                Spacer(modifier = Modifier.size(6.dp))
-                                Text(text = option.labelPtBr())
-                            }
-                        } else {
-                            FilledTonalButton(
-                                onClick = { onSnooze(option) },
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.filledTonalButtonColors(
-                                    containerColor = OledSurfaceElevated,
-                                    contentColor = TextPrimary
-                                )
-                            ) {
-                                NerdIcon(glyph = NerdIcons.ClockOutline, color = IndigoPrimary, size = 14.sp)
-                                Spacer(modifier = Modifier.size(5.dp))
-                                Text(text = option.labelPtBr())
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        SnoozeOption.entries.forEach { option ->
+                            if (option == SnoozeOption.UNTIL_TOMORROW) {
+                                OutlinedButton(
+                                    onClick = { onSnooze(option) },
+                                    shape = RoundedCornerShape(12.dp),
+                                    border = BorderStroke(1.dp, OledBorder),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        containerColor = OledSurfaceElevated,
+                                        contentColor = PriorityHigh
+                                    )
+                                ) {
+                                    NerdIcon(
+                                        glyph = NerdIcons.BellOffOutline,
+                                        color = PriorityHigh,
+                                        size = 15.sp
+                                    )
+                                    Spacer(modifier = Modifier.size(6.dp))
+                                    Text(text = option.labelPtBr())
+                                }
+                            } else {
+                                FilledTonalButton(
+                                    onClick = { onSnooze(option) },
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.filledTonalButtonColors(
+                                        containerColor = OledSurfaceElevated,
+                                        contentColor = TextPrimary
+                                    )
+                                ) {
+                                    NerdIcon(glyph = NerdIcons.ClockOutline, color = IndigoPrimary, size = 14.sp)
+                                    Spacer(modifier = Modifier.size(5.dp))
+                                    Text(text = option.labelPtBr())
+                                }
                             }
                         }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                TextButton(
-                    onClick = onDismissScreen,
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = TextSecondary
-                    )
-                ) {
-                    NerdIcon(glyph = NerdIcons.Close, color = TextSecondary, size = 15.sp)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(text = "Fechar")
+                    TextButton(
+                        onClick = onDismissScreen,
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = TextSecondary
+                        )
+                    ) {
+                        NerdIcon(glyph = NerdIcons.Close, color = TextSecondary, size = 15.sp)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(text = "Fechar")
+                    }
                 }
             }
         }

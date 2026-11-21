@@ -1,7 +1,7 @@
 # specs/01-domain-and-invariants.spec.md
-version: 1.1.0
+version: 1.2.0
 status: implemented
-system: taskmgr (Android v0.0.1)
+system: taskmgr (Android v0.1.0)
 
 ## 1. Domínio e Regras de Negócio
 
@@ -12,7 +12,7 @@ system: taskmgr (Android v0.0.1)
 - **Restrição de Janela:** Não é permitido criar/editar um `Moment` onde `startMinutesOfDay > effectiveEndMinutes(endMinutesOfDay)` (ex.: início `22:00` e fim `04:00` é bloqueado na validação de `MomentEditorDialog`).
 - Modos de lembrete (`ReminderMode`):
     1. `ONCE_AT_START`: dispara uma única vez em `startMinutesOfDay`.
-    2. `INTERVAL_MINUTES`: repete a cada `intervalMinutes` (configurado na UI via campos `H:` e `M:`) dentro da janela.
+    2. `INTERVAL_MINUTES`: repete a cada `intervalMinutes` (configurado na UI via campos `Hora(s)` e `Minuto(s)`) dentro da janela.
     3. `SPECIFIC_TIMES`: dispara nos horários listados em `specificTimesMinutesOfDay`.
 - `Moment` é opcional para `Task` e `Habit`. Quando associado, fornece janela padrão e política de lembretes, a menos que sobrescrito pelo item.
 
@@ -21,9 +21,14 @@ system: taskmgr (Android v0.0.1)
 - Todo hábito associado a um `HabitGroup` renderiza seu ícone (`Habit.iconGlyph ?: HabitGroup.iconGlyph`) dentro de um fundo circular colorido com a cor `HabitGroup.colorArgb` (`HabitBadgeIcon`).
 - A exclusão de um `HabitGroup` mantém os hábitos existentes, definindo `groupId = NULL` (`ForeignKey.SET_NULL`).
 
-### 1.3 Tarefa (`Task`)
+### 1.3 Tarefa (`Task`) & Matriz de Eisenhower (`TaskUrgency`)
 - Possui `startEpochDay` e `endEpochDay`, com invariante `endEpochDay >= startEpochDay`.
-- Pode ter `scheduledMinutesOfDay` (`0..1439`), `momentId` (`Long?`) e/ou `repeatIntervalMinutes` (`Int? > 0`, configurado na UI com caixas `H:` e `M:`).
+- Pode ter `scheduledMinutesOfDay` (`0..1439`), `momentId` (`Long?`) e/ou `repeatIntervalMinutes` (`Int? > 0`, configurado na UI com caixas `Hora(s)` e `Minuto(s)`).
+- Pertence a um dos 4 quadrantes da **Matriz de Eisenhower** (`TaskUrgency`):
+    1. `VERY_HIGH`: **Importante e Urgente (Urgência Muito Alta) — Vermelho (`0xFFEF4444L`)**
+    2. `HIGH`: **Importante e Não Urgente (Urgência Alta) — Amarelo (`0xFFFBBF24L`)**
+    3. `MEDIUM`: **Não Importante e Urgente (Urgência Média) — Verde (`0xFF22C55EL`)**
+    4. `LOW`: **Não Importante e Não Urgente (Urgência Baixa) — Azul (`0xFF3B82F6L`)** *(padrão ao criar uma nova tarefa)*
 - Concluída quando `isCompleted == true`; ao concluir, nenhum alarme futuro do ciclo atual deve disparar.
 - **Sincronização com Calendário:** Apenas `Task` é sincronizada com o `CalendarContract.Events` do Android/Google Agenda.
 

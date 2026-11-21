@@ -21,6 +21,48 @@ enum class SnoozeOption(val minutes: Long?, val untilTomorrow: Boolean) {
     UNTIL_TOMORROW(null, true)
 }
 
+enum class TaskUrgency(
+    val titlePtBr: String,
+    val matrixTitlePtBr: String,
+    val shortLabelPtBr: String,
+    val colorNamePtBr: String,
+    val colorArgb: Long,
+    val sortOrder: Int
+) {
+    VERY_HIGH(
+        titlePtBr = "Urgência Muito Alta",
+        matrixTitlePtBr = "Importante e Urgente",
+        shortLabelPtBr = "Muito Alta",
+        colorNamePtBr = "Vermelho",
+        colorArgb = 0xFFEF4444L,
+        sortOrder = 0
+    ),
+    HIGH(
+        titlePtBr = "Urgência Alta",
+        matrixTitlePtBr = "Importante e Não Urgente",
+        shortLabelPtBr = "Alta",
+        colorNamePtBr = "Amarelo",
+        colorArgb = 0xFFFBBF24L,
+        sortOrder = 1
+    ),
+    MEDIUM(
+        titlePtBr = "Urgência Média",
+        matrixTitlePtBr = "Não Importante e Urgente",
+        shortLabelPtBr = "Média",
+        colorNamePtBr = "Verde",
+        colorArgb = 0xFF22C55EL,
+        sortOrder = 2
+    ),
+    LOW(
+        titlePtBr = "Urgência Baixa",
+        matrixTitlePtBr = "Não Importante e Não Urgente",
+        shortLabelPtBr = "Baixa",
+        colorNamePtBr = "Azul",
+        colorArgb = 0xFF3B82F6L,
+        sortOrder = 3
+    )
+}
+
 data class Moment(
     val id: Long = 0L,
     val name: String,
@@ -35,20 +77,62 @@ data class Moment(
     val isEnabled: Boolean = true
 )
 
+data class TaskAdvanceReminder(
+    val daysBefore: Int = 0,
+    val hoursBefore: Int = 0,
+    val minutesBefore: Int = 0,
+    val repeatIntervalMinutes: Int? = null
+) {
+    val totalMinutesBefore: Long
+        get() = daysBefore.toLong() * 1440L + hoursBefore.toLong() * 60L + minutesBefore.toLong()
+
+    fun formatLabelPtBr(): String {
+        val parts = buildList {
+            if (daysBefore > 0) add(if (daysBefore == 1) "1 dia" else "$daysBefore dias")
+            if (hoursBefore > 0) add(if (hoursBefore == 1) "1 hora" else "$hoursBefore horas")
+            if (minutesBefore > 0) add(if (minutesBefore == 1) "1 min" else "$minutesBefore min")
+        }
+        val offsetText = if (parts.isEmpty()) "No horário" else "${parts.joinToString(", ")} antes"
+        val repeatText = repeatIntervalMinutes?.takeIf { it > 0 }?.let { rep ->
+            val h = rep / 60
+            val m = rep % 60
+            val freq = when {
+                h > 0 && m > 0 -> "${h}h ${m}min"
+                h > 0 -> "${h}h"
+                else -> "${m}min"
+            }
+            " (repetir a cada $freq)"
+        }.orEmpty()
+        return offsetText + repeatText
+    }
+}
+
 data class Task(
     val id: Long = 0L,
     val title: String,
     val notes: String? = null,
-    val startEpochDay: Long,
-    val endEpochDay: Long,
+    val startEpochDay: Long = UNSCHEDULED_EPOCH_DAY,
+    val endEpochDay: Long = UNSCHEDULED_EPOCH_DAY,
     val scheduledMinutesOfDay: Int? = null,
     val momentId: Long? = null,
     val repeatIntervalMinutes: Int? = null,
     val aggressiveFullScreen: Boolean = true,
     val vibrationEnabled: Boolean = true,
     val isCompleted: Boolean = false,
-    val snoozedUntilEpochMillis: Long? = null
-)
+    val snoozedUntilEpochMillis: Long? = null,
+    val urgency: TaskUrgency = TaskUrgency.LOW,
+    val advanceReminders: List<TaskAdvanceReminder> = emptyList()
+) {
+    val hasDate: Boolean
+        get() = startEpochDay >= 0L
+
+    val isUnscheduledInbox: Boolean
+        get() = !hasDate && scheduledMinutesOfDay == null
+
+    companion object {
+        const val UNSCHEDULED_EPOCH_DAY: Long = -1L
+    }
+}
 
 data class HabitGroup(
     val id: Long = 0L,
@@ -96,7 +180,9 @@ data class FullScreenReminderPayload(
     val momentName: String?,
     val progressText: String?,
     val incrementButtonLabel: String?,
-    val vibrationEnabled: Boolean
+    val vibrationEnabled: Boolean,
+    val showSnoozeOptions: Boolean = true,
+    val acknowledgeOnly: Boolean = false
 )
 
 enum class ReminderItemType {

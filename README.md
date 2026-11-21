@@ -2,7 +2,7 @@
 
 Aplicativo Android nativo para gerenciamento de **Tarefas**, **Hábitos com unidades customizadas**, **Grupos de Hábitos**, **Momentos (janelas do dia)** e **Alarmes em Tela Cheia**, construído com **Kotlin**, **Jetpack Compose (Material 3 OLED Dark)** e **Room**.
 
-- **Versão:** `0.0.1`
+- **Versão:** `0.1.0`
 - **Criador:** [Jovi](https://github.com/jovi-j/)
 
 ---
@@ -10,12 +10,17 @@ Aplicativo Android nativo para gerenciamento de **Tarefas**, **Hábitos com unid
 ## ✨ Principais Funcionalidades
 
 - **Interface OLED Dark (`#000000`):** Paleta de alto contraste com pixels pretos reais para telas AMOLED, superfícies em camadas (`#0E1117` / `#161B26`), destaques em índigo (`#818CF8`), transições animadas suaves e tipografia **Ubuntu Sans Nerd Font**.
-- **5 Abas Principais na Barra Inferior:**
-    1. **Hoje:** Progresso diário, tarefas e hábitos agrupados por Momento do dia.
+- **5 Abas na Barra Inferior + Configurações no Topo:**
+    1. **Hoje:** Progresso diário, tarefas (com badge de urgência colorido da Matriz de Eisenhower) e hábitos agrupados por Momento do dia.
     2. **Calendário:** Visão mensal com indicadores visuais, resumo de retenção de hábitos e **edição retroativa** (clique em qualquer dia anterior para ajustar exatamente quanto de cada hábito foi feito ou incluir hábitos retroativamente).
-    3. **Grupos:** Criação de grupos de hábitos com cor e ícone circular (`HabitBadgeIcon`) do catálogo com mais de 180 ícones Nerd Font pesquisáveis, listando todos os hábitos dentro de cada grupo.
-    4. **Momentos:** Janelas temporais do dia (ex.: `06:00 - 12:00`, ou `06:00 - 00:00` tratando meia-noite como fim do mesmo dia) com repetição configurável em horas (`H:`) e minutos (`M:`).
-    5. **Config:** Menu organizado em 4 subtelas (**Exportação, Sincronização e Importação**, **Permissões**, **Vibração** e **Sobre**).
+    3. **Matriz:** Visão em grade 2x2 com os **4 quadrantes da Matriz de Eisenhower** para tarefas:
+        - **Importante e Urgente (`Urgência Muito Alta`) — Vermelho (`#EF4444`)**
+        - **Importante e Não Urgente (`Urgência Alta`) — Amarelo (`#FBBF24`)**
+        - **Não Importante e Urgente (`Urgência Média`) — Verde (`#22C55E`)**
+        - **Não Importante e Não Urgente (`Urgência Baixa`) — Azul (`#3B82F6`)** *(quadrante padrão ao criar uma nova tarefa)*
+    4. **Grupos:** Criação de grupos de hábitos com cor e ícone circular (`HabitBadgeIcon`) do catálogo com mais de 180 ícones Nerd Font pesquisáveis, listando todos os hábitos dentro de cada grupo.
+    5. **Momentos:** Janelas temporais do dia (ex.: `06:00 - 12:00`, ou `06:00 - 00:00` tratando meia-noite como fim do mesmo dia) com repetição configurável em `Hora(s)` e `Minuto(s)`.
+    - **Config (no canto superior direito da TopAppBar):** Menu organizado em 4 subtelas (**Exportação, Sincronização e Importação**, **Permissões**, **Vibração** e **Sobre**).
 - **Hábitos Flexíveis & Indicador de Sequência (Streak):**
     - Suporte a hábitos booleanos (`Sim/Não`), contagem diária (`N vezes`) ou unidades customizadas (ex.: `+250 ml / 2000 ml`, `+1 capítulo / 10 capítulos`).
     - Cálculo automático de **Sequência Atual**, **Recorde** e **Total de Dias Concluídos**.

@@ -4,15 +4,22 @@ Este documento descreve o funcionamento das funcionalidades principais de produt
 
 ---
 
-## 1. Tarefas (`Task`)
+## 1. Tarefas (`Task`) e Matriz de Eisenhower (`TaskUrgency`)
 
 As tarefas representam demandas pontuais ou com duração em dias específicos (`startEpochDay` até `endEpochDay`):
-- **Criação em Tela Inteira (`TaskEditorScreen`):** Acessada pelo botão flutuante (`+`) na aba **Hoje**.
+- **Matriz de Eisenhower (4 Quadrantes / Níveis de Urgência):**
+    1. **Importante e Urgente (`Urgência Muito Alta` / `VERY_HIGH`) — Vermelho (`#EF4444`)**
+    2. **Importante e Não Urgente (`Urgência Alta` / `HIGH`) — Amarelo (`#FBBF24`)**
+    3. **Não Importante e Urgente (`Urgência Média` / `MEDIUM`) — Verde (`#22C55E`)**
+    4. **Não Importante e Não Urgente (`Urgência Baixa` / `LOW`) — Azul (`#3B82F6`)**
+- **Quadrante Padrão:** Toda tarefa ao ser criada inicia automaticamente em **Urgência Baixa (Não Importante e Não Urgente — Azul)**, a menos que o usuário selecione outro quadrante na criação ou crie a tarefa diretamente dentro de um quadrante na aba **Matriz** (`EisenhowerMatrixScreen`).
+- **Aba "Matriz" (`EisenhowerMatrixScreen`):** Exibe os 4 quadrantes contendo todas as tarefas pertencentes a cada quadrante, permitindo concluir, testar alarme, editar, excluir ou adicionar novas tarefas diretamente naquele quadrante.
+- **Criação em Tela Inteira (`TaskEditorScreen`):** Acessada pelo botão flutuante (`+`) na aba **Hoje** ou pelos botões da aba **Matriz**.
 - **Agendamento:**
     - Podem ter um **horário exato** (`HH:mm`).
     - Podem ser associadas a um **Momento** (herdando a janela temporal do momento).
-    - Podem ter repetição configurada no campo **"Repetir a cada:"** com caixas separadas para horas (`H:`) e minutos (`M:`).
-- **Conclusão:** Ao marcar uma tarefa como concluída na aba **Hoje** ou no **Calendário**, todos os alarmes pendentes para ela são imediatamente cancelados.
+    - Podem ter repetição configurada no campo **"Repetir a cada:"** com caixas separadas para `Hora(s)` e `Minuto(s)`.
+- **Conclusão:** Ao marcar uma tarefa como concluída na aba **Hoje**, **Matriz** ou **Calendário**, todos os alarmes pendentes para ela são imediatamente cancelados.
 
 ---
 

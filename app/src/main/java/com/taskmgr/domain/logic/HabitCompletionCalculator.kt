@@ -76,16 +76,44 @@ object HabitCompletionCalculator {
         }
     }
 
-    fun buildTaskPayload(task: Task, epochDay: Long, momentName: String?): FullScreenReminderPayload {
+    fun buildTaskPayload(
+        task: Task,
+        epochDay: Long,
+        momentName: String?,
+        isAdvanceReminder: Boolean = false
+    ): FullScreenReminderPayload {
+        val scheduleSummary = buildString {
+            if (task.hasDate) {
+                val date = java.time.LocalDate.ofEpochDay(task.startEpochDay)
+                append(
+                    String.format(
+                        java.util.Locale.US,
+                        "%02d/%02d/%04d",
+                        date.dayOfMonth,
+                        date.monthValue,
+                        date.year
+                    )
+                )
+            }
+            task.scheduledMinutesOfDay?.let { mins ->
+                val h = (mins / 60).coerceIn(0, 23)
+                val m = (mins % 60).coerceIn(0, 59)
+                if (isNotEmpty()) append(" às ")
+                append(String.format(java.util.Locale.US, "%02d:%02d", h, m))
+            }
+        }.takeIf { it.isNotBlank() }
+
         return FullScreenReminderPayload(
             itemType = ReminderItemType.TASK,
             itemId = task.id,
             epochDay = epochDay,
             title = task.title,
             momentName = momentName,
-            progressText = null,
-            incrementButtonLabel = "Sim (Concluir)",
-            vibrationEnabled = task.vibrationEnabled
+            progressText = scheduleSummary,
+            incrementButtonLabel = "Sim",
+            vibrationEnabled = task.vibrationEnabled,
+            showSnoozeOptions = false,
+            acknowledgeOnly = isAdvanceReminder
         )
     }
 

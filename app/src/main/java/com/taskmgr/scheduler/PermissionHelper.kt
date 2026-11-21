@@ -20,7 +20,11 @@ data class AppPermissionStatus(
     val isIgnoringBatteryOptimizations: Boolean
 ) {
     val allCriticalGranted: Boolean
-        get() = canUseFullScreenIntent && canDrawOverlays && canScheduleExactAlarms && hasPostNotifications
+        get() = canUseFullScreenIntent &&
+            canDrawOverlays &&
+            canScheduleExactAlarms &&
+            hasPostNotifications &&
+            isIgnoringBatteryOptimizations
 }
 
 object PermissionHelper {

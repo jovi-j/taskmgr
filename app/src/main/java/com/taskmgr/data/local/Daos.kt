@@ -45,7 +45,7 @@ interface TaskDao {
     @Query(
         """
         SELECT * FROM tasks
-        WHERE startEpochDay <= :epochDay AND endEpochDay >= :epochDay
+        WHERE startEpochDay >= 0 AND startEpochDay <= :epochDay AND endEpochDay >= :epochDay
         ORDER BY isCompleted ASC, COALESCE(scheduledMinutesOfDay, 1440) ASC, id ASC
         """
     )
@@ -54,7 +54,7 @@ interface TaskDao {
     @Query(
         """
         SELECT * FROM tasks
-        WHERE startEpochDay <= :endEpochDay AND endEpochDay >= :startEpochDay
+        WHERE startEpochDay >= 0 AND startEpochDay <= :endEpochDay AND endEpochDay >= :startEpochDay
         ORDER BY startEpochDay ASC, id ASC
         """
     )

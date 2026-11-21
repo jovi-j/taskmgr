@@ -1,6 +1,6 @@
 # Visão Geral & Arquitetura — taskmgr
 
-**taskmgr** (`v0.0.1`) é um aplicativo nativo Android (Kotlin + Jetpack Compose + Material 3) projetado para gerenciamento de tarefas, hábitos com unidades customizadas, janelas temporais ("Momentos"), lembretes persistentes em tela cheia sobre a tela bloqueada e interoperabilidade via GitHub Flavored Markdown e Google/Android Agenda.
+**taskmgr** (`v0.0.3`) é um aplicativo nativo Android (Kotlin + Jetpack Compose + Material 3) projetado para gerenciamento de tarefas, hábitos com unidades customizadas, janelas temporais ("Momentos"), lembretes persistentes em tela cheia sobre a tela bloqueada e interoperabilidade via GitHub Flavored Markdown e Google/Android Agenda.
 
 ---
 

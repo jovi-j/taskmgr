@@ -3,7 +3,6 @@ package com.taskmgr.ui.screens
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -91,6 +90,12 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+private val LOCALE_PT_BR: Locale = Locale.forLanguageTag("pt-BR")
+private val DAY_HEADER_TITLE_FORMATTER: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("EEE, dd/MM", LOCALE_PT_BR)
+private val DAY_HEADER_SUBTITLE_FORMATTER: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("dd 'de' MMMM", LOCALE_PT_BR)
+
 @Composable
 fun TodayScreen(
     uiState: TodayUiState,
@@ -107,30 +112,31 @@ fun TodayScreen(
     onOpenPermissionsSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val todayEpochDay = LocalDate.now().toEpochDay()
-    val localePtBr = Locale.forLanguageTag("pt-BR")
+    val todayEpochDay = remember { LocalDate.now().toEpochDay() }
 
-    val momentsById = uiState.moments.associateBy { it.id }
+    val momentGroups: List<Pair<Moment?, Pair<List<Task>, List<HabitWithLog>>>> =
+        remember(uiState.moments, uiState.tasks, uiState.habits) {
+            val momentsById = uiState.moments.associateBy { it.id }
+            buildList {
+                val groupedTasks = uiState.tasks.groupBy { it.momentId }
+                val groupedHabits = uiState.habits.groupBy { it.habit.momentId }
 
-    val momentGroups: List<Pair<Moment?, Pair<List<Task>, List<HabitWithLog>>>> = buildList {
-        val groupedTasks = uiState.tasks.groupBy { it.momentId }
-        val groupedHabits = uiState.habits.groupBy { it.habit.momentId }
-
-        uiState.moments.forEach { moment ->
-            val mTasks = groupedTasks[moment.id].orEmpty()
-            val mHabits = groupedHabits[moment.id].orEmpty()
-            if (mTasks.isNotEmpty() || mHabits.isNotEmpty()) {
-                add(moment to (mTasks to mHabits))
+                uiState.moments.forEach { moment ->
+                    val mTasks = groupedTasks[moment.id].orEmpty()
+                    val mHabits = groupedHabits[moment.id].orEmpty()
+                    if (mTasks.isNotEmpty() || mHabits.isNotEmpty()) {
+                        add(moment to (mTasks to mHabits))
+                    }
+                }
+                val looseTasks = groupedTasks[null].orEmpty() +
+                    uiState.tasks.filter { it.momentId != null && momentsById[it.momentId] == null }
+                val looseHabits = groupedHabits[null].orEmpty() +
+                    uiState.habits.filter { it.habit.momentId != null && momentsById[it.habit.momentId] == null }
+                if (looseTasks.isNotEmpty() || looseHabits.isNotEmpty()) {
+                    add(null to (looseTasks to looseHabits))
+                }
             }
         }
-        val looseTasks = groupedTasks[null].orEmpty() +
-            uiState.tasks.filter { it.momentId != null && momentsById[it.momentId] == null }
-        val looseHabits = groupedHabits[null].orEmpty() +
-            uiState.habits.filter { it.habit.momentId != null && momentsById[it.habit.momentId] == null }
-        if (looseTasks.isNotEmpty() || looseHabits.isNotEmpty()) {
-            add(null to (looseTasks to looseHabits))
-        }
-    }
 
     var showDatePicker by remember { mutableStateOf(false) }
 
@@ -139,7 +145,7 @@ fun TodayScreen(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item(key = "perm_banner") {
+        item(key = "perm_banner", contentType = "perm_banner") {
             AnimatedVisibility(
                 visible = !permissionStatus.allCriticalGranted,
                 enter = expandVertically(tween(260, easing = FastOutSlowInEasing)) + fadeIn(tween(220)),
@@ -152,11 +158,10 @@ fun TodayScreen(
             }
         }
 
-        item(key = "day_header") {
+        item(key = "day_header", contentType = "day_header") {
             DayHeaderBar(
                 selectedEpochDay = uiState.selectedEpochDay,
                 todayEpochDay = todayEpochDay,
-                localePtBr = localePtBr,
                 onPrevDay = { onSelectDay(uiState.selectedEpochDay - 1) },
                 onToday = { onSelectDay(todayEpochDay) },
                 onNextDay = { onSelectDay(uiState.selectedEpochDay + 1) },
@@ -165,19 +170,18 @@ fun TodayScreen(
             )
         }
 
-        item(key = "summary_card") {
+        item(key = "summary_card", contentType = "summary_card") {
             val totalItems = uiState.tasks.size + uiState.habits.size
-            val completedItems = uiState.tasks.count { it.isCompleted } +
-                uiState.habits.count { it.isCompleted }
+            val completedItems = remember(uiState.tasks, uiState.habits) {
+                uiState.tasks.count { it.isCompleted } + uiState.habits.count { it.isCompleted }
+            }
             DaySummaryCard(completed = completedItems, total = totalItems)
         }
 
         if (momentGroups.isEmpty()) {
-            item(key = "empty_state") {
+            item(key = "empty_state", contentType = "empty_state") {
                 Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .animateItem(),
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = OledSurface),
                     border = BorderStroke(1.dp, OledBorder)
@@ -212,42 +216,42 @@ fun TodayScreen(
         } else {
             momentGroups.forEach { (moment, pair) ->
                 val (tasksInGroup, habitsInGroup) = pair
-                item(key = "group_header_${moment?.id ?: -1}") {
-                    GroupSectionHeader(
-                        moment = moment,
-                        modifier = Modifier.animateItem()
-                    )
+                item(
+                    key = "group_header_${moment?.id ?: -1}",
+                    contentType = "group_header"
+                ) {
+                    GroupSectionHeader(moment = moment)
                 }
                 items(
                     items = habitsInGroup,
-                    key = { "habit_${it.habit.id}" }
+                    key = { "habit_${it.habit.id}" },
+                    contentType = { "habit_card" }
                 ) { habitWithLog ->
                     HabitCard(
                         habitWithLog = habitWithLog,
                         onIncrement = { onIncrementHabit(habitWithLog.habit.id, uiState.selectedEpochDay) },
                         onEdit = { onEditHabit(habitWithLog.habit) },
                         onDelete = { onDeleteHabit(habitWithLog.habit.id) },
-                        onTestAlarm = { onTestHabitAlarm(habitWithLog, uiState.selectedEpochDay) },
-                        modifier = Modifier.animateItem()
+                        onTestAlarm = { onTestHabitAlarm(habitWithLog, uiState.selectedEpochDay) }
                     )
                 }
                 items(
                     items = tasksInGroup,
-                    key = { "task_${it.id}" }
+                    key = { "task_${it.id}" },
+                    contentType = { "task_card" }
                 ) { task ->
                     TaskCard(
                         task = task,
                         onToggleCompleted = { onToggleTask(task) },
                         onEdit = { onEditTask(task) },
                         onDelete = { onDeleteTask(task.id) },
-                        onTestAlarm = { onTestTaskAlarm(task) },
-                        modifier = Modifier.animateItem()
+                        onTestAlarm = { onTestTaskAlarm(task) }
                     )
                 }
             }
         }
 
-        item(key = "bottom_spacer") {
+        item(key = "bottom_spacer", contentType = "bottom_spacer") {
             Spacer(modifier = Modifier.height(72.dp))
         }
     }
@@ -274,6 +278,7 @@ private fun PermissionAlertBanner(
         if (!permissionStatus.canDrawOverlays) add("Sobrepor a Outros Apps")
         if (!permissionStatus.canScheduleExactAlarms) add("Alarmes Exatos")
         if (!permissionStatus.hasPostNotifications) add("Notificações")
+        if (!permissionStatus.isIgnoringBatteryOptimizations) add("Bateria Sem Restrições")
     }
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
@@ -315,7 +320,6 @@ private fun PermissionAlertBanner(
 private fun DayHeaderBar(
     selectedEpochDay: Long,
     todayEpochDay: Long,
-    localePtBr: Locale,
     onPrevDay: () -> Unit,
     onToday: () -> Unit,
     onNextDay: () -> Unit,
@@ -336,30 +340,31 @@ private fun DayHeaderBar(
                 .clip(RoundedCornerShape(12.dp))
                 .clickable(onClick = onPickDate)
                 .padding(horizontal = 12.dp, vertical = 4.dp)
-                .animateContentSize(tween(220, easing = FastOutSlowInEasing))
         ) {
             AnimatedContent(
                 targetState = selectedEpochDay,
                 transitionSpec = {
                     val forward = targetState >= initialState
-                    val slideIn = slideInHorizontally(tween(240, easing = FastOutSlowInEasing)) {
+                    val slideIn = slideInHorizontally(tween(220, easing = FastOutSlowInEasing)) {
                         if (forward) it / 3 else -it / 3
-                    } + fadeIn(tween(200))
-                    val slideOut = slideOutHorizontally(tween(200, easing = FastOutSlowInEasing)) {
+                    } + fadeIn(tween(180))
+                    val slideOut = slideOutHorizontally(tween(180, easing = FastOutSlowInEasing)) {
                         if (forward) -it / 3 else it / 3
-                    } + fadeOut(tween(150))
+                    } + fadeOut(tween(140))
                     slideIn togetherWith slideOut
                 },
                 label = "day_header_transition"
             ) { targetDay ->
-                val date = LocalDate.ofEpochDay(targetDay)
-                val title = when (targetDay) {
-                    todayEpochDay -> "Hoje"
-                    todayEpochDay - 1 -> "Ontem"
-                    todayEpochDay + 1 -> "Amanhã"
-                    else -> date.format(DateTimeFormatter.ofPattern("EEE, dd/MM", localePtBr))
+                val (title, subtitle) = remember(targetDay, todayEpochDay) {
+                    val date = LocalDate.ofEpochDay(targetDay)
+                    val t = when (targetDay) {
+                        todayEpochDay -> "Hoje"
+                        todayEpochDay - 1 -> "Ontem"
+                        todayEpochDay + 1 -> "Amanhã"
+                        else -> date.format(DAY_HEADER_TITLE_FORMATTER)
+                    }
+                    t to date.format(DAY_HEADER_SUBTITLE_FORMATTER)
                 }
-                val subtitle = date.format(DateTimeFormatter.ofPattern("dd 'de' MMMM", localePtBr))
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = title,
@@ -520,7 +525,7 @@ private fun GroupSectionHeader(
 @Composable
 private fun MetaBadge(
     glyph: String,
-    text: String,
+    text: String? = null,
     tint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     monospace: Boolean = false
 ) {
@@ -529,13 +534,15 @@ private fun MetaBadge(
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         NerdIcon(glyph = glyph, color = tint, size = 13.sp)
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodySmall.let { base ->
-                if (monospace) base.copy(fontFamily = UbuntuSansMonoNerdFontFamily) else base
-            },
-            color = tint
-        )
+        if (!text.isNullOrEmpty()) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodySmall.let { base ->
+                    if (monospace) base.copy(fontFamily = UbuntuSansMonoNerdFontFamily) else base
+                },
+                color = tint
+            )
+        }
     }
 }
 
@@ -555,9 +562,7 @@ private fun TaskCard(
         label = "task_title_color"
     )
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .animateContentSize(tween(220, easing = FastOutSlowInEasing)),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = OledSurface),
         border = BorderStroke(1.dp, OledBorder)
@@ -587,9 +592,13 @@ private fun TaskCard(
                     Spacer(modifier = Modifier.height(2.dp))
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        itemVerticalAlignment = Alignment.CenterVertically
                     ) {
-                        MetaBadge(glyph = NerdIcons.CheckboxMarkedOutline, text = "Tarefa")
+                        MetaBadge(
+                            glyph = NerdIcons.Flag,
+                            tint = Color(task.urgency.colorArgb.toInt())
+                        )
                         task.scheduledMinutesOfDay?.let {
                             MetaBadge(glyph = NerdIcons.ClockOutline, text = formatMinutes(it), monospace = true)
                         }
@@ -668,9 +677,7 @@ private fun HabitCard(
     )
 
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .animateContentSize(tween(220, easing = FastOutSlowInEasing)),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = OledSurface),
         border = BorderStroke(1.dp, OledBorder)
