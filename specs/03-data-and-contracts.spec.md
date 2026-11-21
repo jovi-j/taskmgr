@@ -1,7 +1,7 @@
 # specs/03-data-and-contracts.spec.md
-version: 1.1.1
+version: 1.1.2
 status: implemented
-system: taskmgr (Android v0.0.2)
+system: taskmgr (Android v0.0.3)
 
 ## 1. Modelos de Domínio (`com.taskmgr.domain.model`)
 

@@ -1,7 +1,7 @@
 # specs/02-state-machines.spec.md
-version: 1.1.1
+version: 1.1.2
 status: implemented
-system: taskmgr (Android v0.0.2)
+system: taskmgr (Android v0.0.3)
 
 ## 1. Máquina de Estados — `Task` (por ciclo/instância)
 Estados:
@@ -54,7 +54,7 @@ Subtelas de Configurações (`SettingsSection` em `MomentsAndSettingsScreen.kt`)
 - `EXPORT_SYNC` ("Exportação, Sincronização e Importação")
 - `PERMISSIONS` ("Permissões")
 - `VIBRATION` ("Vibração")
-- `ABOUT` ("Sobre" — Versão `0.0.2`, Criador `Jovi` `https://github.com/jovi-j/`)
+- `ABOUT` ("Sobre" — Versão `0.0.3`, Criador `Jovi` `https://github.com/jovi-j/`)
 
 ## 4. Máquina de Estados — Sincronização de Calendário (`AndroidCalendarSyncManager`)
 - **Precondição:** `READ_CALENDAR` e `WRITE_CALENDAR` concedidas + calendário gravável selecionado (`CALENDAR_ACCESS_LEVEL >= CAL_ACCESS_CONTRIBUTOR`).

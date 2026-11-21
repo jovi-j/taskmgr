@@ -805,19 +805,19 @@ private fun HabitCompletionModeSection(
                 selected = completionType == CompletionType.BOOLEAN,
                 onClick = { onCompletionTypeChange(CompletionType.BOOLEAN) },
                 leadingIcon = { NerdIcon(glyph = NerdIcons.CheckCircle, size = 14.sp) },
-                label = { Text("Sim/Não") }
+                label = { Text("Sim e Não") }
             )
             FilterChip(
                 selected = completionType == CompletionType.COUNT_PER_DAY,
                 onClick = { onCompletionTypeChange(CompletionType.COUNT_PER_DAY) },
                 leadingIcon = { NerdIcon(glyph = NerdIcons.Counter, size = 14.sp) },
-                label = { Text("N 'Sim' / dia") }
+                label = { Text("Por quantidade") }
             )
             FilterChip(
                 selected = completionType == CompletionType.CUSTOM_UNIT,
                 onClick = { onCompletionTypeChange(CompletionType.CUSTOM_UNIT) },
                 leadingIcon = { NerdIcon(glyph = NerdIcons.CupWater, size = 14.sp) },
-                label = { Text("Unidade custom") }
+                label = { Text("Customizado") }
             )
         }
 

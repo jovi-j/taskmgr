@@ -253,7 +253,7 @@ fun RepeatIntervalHourMinuteFields(
                 onValueChange = { raw ->
                     onHoursChange(raw.filter { it.isDigit() }.take(2))
                 },
-                label = { Text("H:") },
+                label = { Text("Hora(s)") },
                 placeholder = { Text("0") },
                 leadingIcon = { NerdIcon(glyph = NerdIcons.ClockOutline, size = 17.sp) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -266,7 +266,7 @@ fun RepeatIntervalHourMinuteFields(
                 onValueChange = { raw ->
                     onMinutesChange(raw.filter { it.isDigit() }.take(3))
                 },
-                label = { Text("M:") },
+                label = { Text("Minuto(s)") },
                 placeholder = { Text("0") },
                 leadingIcon = { NerdIcon(glyph = NerdIcons.TimerOutline, size = 17.sp) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),

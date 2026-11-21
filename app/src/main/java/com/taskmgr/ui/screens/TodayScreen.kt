@@ -278,6 +278,7 @@ private fun PermissionAlertBanner(
         if (!permissionStatus.canDrawOverlays) add("Sobrepor a Outros Apps")
         if (!permissionStatus.canScheduleExactAlarms) add("Alarmes Exatos")
         if (!permissionStatus.hasPostNotifications) add("Notificações")
+        if (!permissionStatus.isIgnoringBatteryOptimizations) add("Bateria Sem Restrições")
     }
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
