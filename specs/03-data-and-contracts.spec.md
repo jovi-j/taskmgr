@@ -1,9 +1,9 @@
 # specs/03-data-and-contracts.spec.md
-version: 1.0.0
-status: draft
-system: taskmgr (Android)
+version: 1.1.0
+status: implemented
+system: taskmgr (Android v0.0.1)
 
-## 1. Modelos de Domínio e Contratos Kotlin
+## 1. Modelos de Domínio (`com.taskmgr.domain.model`)
 
 ```kotlin
 package com.taskmgr.domain.model
@@ -58,6 +58,13 @@ data class Task(
     val snoozedUntilEpochMillis: Long? = null
 )
 
+data class HabitGroup(
+    val id: Long = 0L,
+    val name: String,
+    val colorArgb: Long,
+    val iconGlyph: String
+)
+
 data class Habit(
     val id: Long = 0L,
     val title: String,
@@ -65,6 +72,8 @@ data class Habit(
     val startEpochDay: Long,
     val activeDaysMask: Int,
     val momentId: Long? = null,
+    val groupId: Long? = null,
+    val iconGlyph: String? = null,
     val scheduledMinutesOfDay: Int? = null,
     val repeatIntervalMinutes: Int? = null,
     val aggressiveFullScreen: Boolean = true,
@@ -102,3 +111,103 @@ enum class ReminderItemType {
     TASK,
     HABIT
 }
+```
+
+## 2. Banco de Dados Room (`TaskMgrDatabase` v3)
+- **Versão atual:** `3` (`MIGRATION_1_2` adiciona `habit_groups` e colunas `groupId`/`iconGlyph` em `habits`; `MIGRATION_2_3` adiciona `calendar_sync_events`).
+- **Tabelas:**
+    - `moments` (`MomentEntity`)
+    - `habit_groups` (`HabitGroupEntity`)
+    - `tasks` (`TaskEntity`, `FOREIGN KEY(momentId) ON DELETE SET NULL`)
+    - `habits` (`HabitEntity`, `FOREIGN KEY(momentId) ON DELETE SET NULL`, `FOREIGN KEY(groupId) ON DELETE SET NULL`)
+    - `habit_logs` (`HabitLogEntity`, PK composta `[habitId, epochDay]`, `FOREIGN KEY(habitId) ON DELETE CASCADE`)
+    - `calendar_sync_events` (`CalendarSyncEventEntity`, PK composta `[itemType, itemId]`)
+
+## 3. Contratos de Repositório, Agendamento e Exportação (`com.taskmgr.domain.contract` & `com.taskmgr.domain.export`)
+
+```kotlin
+package com.taskmgr.domain.contract
+
+import com.taskmgr.domain.model.FullScreenReminderPayload
+import com.taskmgr.domain.model.Habit
+import com.taskmgr.domain.model.HabitGroup
+import com.taskmgr.domain.model.HabitLog
+import com.taskmgr.domain.model.Moment
+import com.taskmgr.domain.model.ReminderItemType
+import com.taskmgr.domain.model.SnoozeOption
+import com.taskmgr.domain.model.Task
+import kotlinx.coroutines.flow.Flow
+
+interface MomentRepository {
+    fun observeMoments(): Flow<List<Moment>>
+    suspend fun upsert(moment: Moment): Long
+    suspend fun delete(momentId: Long)
+}
+
+interface HabitGroupRepository {
+    fun observeGroups(): Flow<List<HabitGroup>>
+    suspend fun upsert(group: HabitGroup): Long
+    suspend fun delete(groupId: Long)
+}
+
+interface TaskRepository {
+    fun observeTasksForDay(epochDay: Long): Flow<List<Task>>
+    fun observeAllTasks(): Flow<List<Task>>
+    suspend fun getAllTasks(): List<Task>
+    suspend fun getById(taskId: Long): Task?
+    suspend fun upsert(task: Task): Long
+    suspend fun setCompleted(taskId: Long, completed: Boolean, completedAtEpochMillis: Long?)
+    suspend fun snooze(taskId: Long, option: SnoozeOption, nowEpochMillis: Long)
+    suspend fun delete(taskId: Long)
+}
+
+interface HabitRepository {
+    fun observeHabits(): Flow<List<Habit>>
+    fun observeAllHabitLogs(): Flow<List<HabitLog>>
+    fun observeHabitLogsForDay(epochDay: Long): Flow<List<HabitLog>>
+    fun observeHabitLogsForRange(startEpochDay: Long, endEpochDay: Long): Flow<List<HabitLog>>
+    suspend fun getHabitById(habitId: Long): Habit?
+    suspend fun getLog(habitId: Long, epochDay: Long): HabitLog?
+    suspend fun upsertHabit(habit: Habit): Long
+    suspend fun incrementHabit(habitId: Long, epochDay: Long, nowEpochMillis: Long): HabitLog
+    suspend fun updateHabitLogManual(
+        habitId: Long,
+        epochDay: Long,
+        accumulatedAmount: Double,
+        dismissedForDay: Boolean,
+        nowEpochMillis: Long
+    ): HabitLog
+    suspend fun snoozeHabit(habitId: Long, epochDay: Long, option: SnoozeOption, nowEpochMillis: Long): HabitLog
+    suspend fun deleteHabit(habitId: Long)
+}
+
+interface ReminderScheduler {
+    suspend fun scheduleNextForTask(taskId: Long)
+    suspend fun scheduleNextForHabit(habitId: Long, epochDay: Long)
+    suspend fun cancelTaskReminders(taskId: Long)
+    suspend fun cancelHabitRemindersForDay(habitId: Long, epochDay: Long)
+    suspend fun reconcileAll(nowEpochMillis: Long)
+}
+
+interface FullScreenAlertDispatcher {
+    fun canUseFullScreenIntent(): Boolean
+    fun triggerFullScreenReminder(payload: FullScreenReminderPayload)
+    fun dismissReminder(itemType: ReminderItemType, itemId: Long)
+}
+```
+
+## 4. Sistema Visual & Paleta OLED (`com.example.taskmgr.ui.theme`)
+- `OledBackground`: `#000000` (Fundo principal OLED)
+- `OledSurface`: `#0E1117` (Superfície 1 — Cartões de tarefas, hábitos e inputs)
+- `OledSurfaceElevated`: `#161B26` (Superfície 2 — Modais, diálogos e menus)
+- `OledBorder`: `#1F2937` (Bordas de `1.dp` e divisores)
+- `IndigoPrimary`: `#818CF8` (Destaque principal, FAB, checkboxes e abas ativas)
+- `IndigoContainer`: `#1E1B4B` (Container primário de chips e indicadores ativos)
+- `TextPrimary`: `#F8FAFC`
+- `TextSecondary`: `#94A3B8`
+- `TextDisabled`: `#475569`
+- `PriorityHigh`: `#F87171`
+- `PriorityMedium`: `#FBBF24`
+- `PriorityLow`: `#60A5FA`
+- `TaskCompleted`: `#34D399`
+- **Fontes:** `UbuntuSansNerdFontFamily` e `UbuntuSansMonoNerdFontFamily` (`NerdIcons` e `NerdIconCatalog` em `NerdFontIcons.kt`).
