@@ -28,6 +28,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
+            android:launchMode="singleTop"
             android:theme="@style/Theme.Taskmgr"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
@@ -66,6 +67,39 @@
                 <action android:name="android.intent.action.TIMEZONE_CHANGED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name="com.taskmgr.widget.HabitGlanceWidgetReceiver"
+            android:exported="true"
+            android:label="@string/habit_widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/habit_widget_info" />
+        </receiver>
+
+        <activity
+            android:name="com.taskmgr.widget.HabitWidgetConfigureActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Taskmgr">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
+        <receiver
+            android:name="com.taskmgr.widget.CalendarTasksGlanceWidgetReceiver"
+            android:exported="true"
+            android:label="@string/calendar_widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/calendar_tasks_widget_info" />
         </receiver>
 
         <provider

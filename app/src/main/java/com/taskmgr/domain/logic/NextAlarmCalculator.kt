@@ -28,9 +28,14 @@ object NextAlarmCalculator {
         if (task.isCompleted || !task.hasDate) return null
 
         val snoozeMillis = task.snoozedUntilEpochMillis
+        val effectiveEndDay = if (task.hasEndDate && task.endEpochDay < Task.OPEN_ENDED_EPOCH_DAY) {
+            task.endEpochDay
+        } else {
+            Long.MAX_VALUE
+        }
         if (snoozeMillis != null && snoozeMillis > nowEpochMillis) {
             val targetDay = Instant.ofEpochMilli(snoozeMillis).atZone(zoneId).toLocalDate().toEpochDay()
-            if (targetDay <= task.endEpochDay) {
+            if (targetDay <= effectiveEndDay) {
                 return ScheduledAlarmSpec(snoozeMillis, targetDay, isAdvanceReminder = false)
             }
             return null
@@ -38,7 +43,9 @@ object NextAlarmCalculator {
 
         val todayEpochDay = Instant.ofEpochMilli(nowEpochMillis).atZone(zoneId).toLocalDate().toEpochDay()
         val firstDay = maxOf(todayEpochDay, task.startEpochDay)
-        if (firstDay > task.endEpochDay) return null
+        if (firstDay > effectiveEndDay) return null
+
+        val searchHorizonEndDay = minOf(effectiveEndDay, firstDay + 14L)
 
         val regularCandidates = mutableListOf<Long>()
         val advanceCandidates = mutableListOf<Long>()
@@ -50,7 +57,10 @@ object NextAlarmCalculator {
             effectiveEventMin in 0 until MomentWindowEvaluator.MINUTES_IN_DAY &&
             task.advanceReminders.isNotEmpty()
         ) {
-            for (day in firstDay..task.endEpochDay) {
+            val maxAdvDays = (task.advanceReminders.maxOfOrNull { it.daysBefore } ?: 0).toLong()
+            val advSearchHorizon = minOf(effectiveEndDay, firstDay + 14L + maxAdvDays)
+            for (day in firstDay..advSearchHorizon) {
+                if (!DaysOfWeekMask.containsEpochDay(task.activeDaysMask, day)) continue
                 val eventMillis = toZonedDateTime(day, effectiveEventMin, zoneId).toInstant().toEpochMilli()
                 if (eventMillis <= nowEpochMillis) continue
 
@@ -78,7 +88,8 @@ object NextAlarmCalculator {
         }
 
         if (scheduledMin != null && scheduledMin in 0 until MomentWindowEvaluator.MINUTES_IN_DAY) {
-            for (day in firstDay..task.endEpochDay) {
+            for (day in firstDay..searchHorizonEndDay) {
+                if (!DaysOfWeekMask.containsEpochDay(task.activeDaysMask, day)) continue
                 val baseZdt = toZonedDateTime(day, scheduledMin, zoneId)
                 val baseMillis = baseZdt.toInstant().toEpochMilli()
                 if (baseMillis > nowEpochMillis) {
@@ -104,8 +115,9 @@ object NextAlarmCalculator {
                 moment = moment,
                 nowEpochMillis = nowEpochMillis,
                 zoneId = zoneId,
+                allowedEpochDaysMask = task.activeDaysMask,
                 minStartEpochDay = task.startEpochDay,
-                maxEndEpochDay = task.endEpochDay,
+                maxEndEpochDay = effectiveEndDay,
                 overrideIntervalMinutes = if (scheduledMin == null) task.repeatIntervalMinutes else null
             )
             if (momentNext != null) {

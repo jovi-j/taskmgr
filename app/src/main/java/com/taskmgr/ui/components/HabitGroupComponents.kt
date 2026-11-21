@@ -79,16 +79,20 @@ data class GroupColorOption(
 
 object HabitGroupColors {
     val palette: List<GroupColorOption> = listOf(
-        GroupColorOption("Vermelho", 0xFFEF4444),
-        GroupColorOption("Laranja", 0xFFF97316),
-        GroupColorOption("Âmbar", 0xFFFBBF24),
-        GroupColorOption("Verde", 0xFF22C55E),
-        GroupColorOption("Esmeralda", 0xFF34D399),
-        GroupColorOption("Ciano", 0xFF22D3EE),
-        GroupColorOption("Azul", 0xFF3B82F6),
-        GroupColorOption("Índigo", 0xFF818CF8),
-        GroupColorOption("Roxo", 0xFFA855F7),
-        GroupColorOption("Rosa", 0xFFEC4899)
+        // Tons suaves / pastel dessaturados
+        GroupColorOption("Rosa Antigo", 0xFFC99DA8),
+        GroupColorOption("Areia", 0xFFD1BE9B),
+        GroupColorOption("Sálvia", 0xFF9AB8A2),
+        GroupColorOption("Menta Suave", 0xFF96BFB7),
+        GroupColorOption("Névoa Azul", 0xFF9BB0C7),
+        GroupColorOption("Lavanda Suave", 0xFFB4A7C7),
+        // Tons terrosos / sóbrios
+        GroupColorOption("Terracota", 0xFFA65E5B),
+        GroupColorOption("Caramelo", 0xFF9E6B47),
+        GroupColorOption("Musgo", 0xFF557D63),
+        GroupColorOption("Petróleo", 0xFF4B7682),
+        GroupColorOption("Azul Ardósia", 0xFF536E8F),
+        GroupColorOption("Ameixa", 0xFF77618A)
     )
 }
 
@@ -110,7 +114,7 @@ fun oledTextFieldColors(): TextFieldColors = OutlinedTextFieldDefaults.colors(
 )
 
 fun contrastContentColor(backgroundColor: Color): Color {
-    return if (backgroundColor.luminance() > 0.45f) Color(0xFF0F172A) else Color.White
+    return if (backgroundColor.luminance() > 0.34f) Color(0xFF0F172A) else Color.White
 }
 
 @Composable

@@ -46,6 +46,8 @@ data class TaskEntity(
     val notes: String? = null,
     val startEpochDay: Long,
     val endEpochDay: Long,
+    val activeDaysMask: Int = 0b1111111,
+    val hasEndDate: Boolean = false,
     val scheduledMinutesOfDay: Int? = null,
     val momentId: Long? = null,
     val aggressiveFullScreen: Boolean = true,

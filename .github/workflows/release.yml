@@ -40,16 +40,17 @@ jobs:
             ## taskmgr ${{ github.ref_name }}
 
             ### Destaques desta versão
-            - **Novo pacote exclusivo (`com.jovij.taskmgr`):**
-              - Migração do pacote/applicationId de `com.example.taskmgr` para `com.jovij.taskmgr`, eliminando conflitos de pacotes existentes em dispositivos Xiaomi (MIUI/HyperOS) e outros fabricantes.
-            - **Matriz de Eisenhower mais limpa ao longo do tempo:**
-              - Apenas tarefas ainda não concluídas e tarefas concluídas hoje são exibidas nos quadrantes da Matriz.
-              - Tarefas concluídas em dias anteriores permanecem registradas e consultáveis normalmente na tela de **Calendário**.
-            - **Tela de Configurações & Sobre:**
-              - Removido o subtítulo com versão hardcoded e autoria do item **Sobre** no menu de Configurações.
-              - A tela **Sobre** exibe dinamicamente a versão instalada do aplicativo.
-            - **Matriz de Eisenhower 2x2, Planejar o Dia & Lembretes Antecipados:**
-              - Visualização em 4 quadrantes com criação direta respeitando a urgência do quadrante.
-              - Tarefas com data e horário opcionais, modal **"Planejar o dia"** para delegar a Caixa de entrada e múltiplos lembretes antecipados customizáveis com notificação de tela inteira.
+            - **Detector de Texto Inteligente em Títulos (Tarefas e Hábitos):**
+              - Reconhecimento automático (case-insensitive e sem acentuação) de data de início (`23/11/2026`, `amanhã`, `depois de amanhã`), data fim (`até 23/12/2026`), horário (`às 15:00`), frequência semanal (`toda segunda e terça`), frequência de hábito (`2x ao dia`, `250 ml de 2500 ml ao dia`), período (`pela manhã`, `pela tarde`, `pela noite`), urgência (`urgencia muito alta`) e grupo (`grupo casa`, `grupo saúde`).
+              - Trechos reconhecidos ficam destacados em azul com fundo escuro; pressionar **Backspace/Delete** logo após o trecho mantém o texto literal no título e reverte a alteração automática.
+            - **4 Momentos Padrões & Frequência/Data Fim em Tarefas:**
+              - Momentos padrões configurados automaticamente: **Manhã** (06:00–12:00), **Tarde** (12:00–18:00), **Noite** (18:00–22:00) e **Todo o dia** (06:00–22:00), todos repetindo a cada 1h.
+              - Suporte a repetição por dias da semana e data fim opcional em tarefas.
+            - **Editores Enxutos por Modais & Tela Inicial Simplificada:**
+              - Campos integrados e *seamless* de **Título** e **Detalhes** com barra horizontal de ícones de seção que mudam de cor quando configurados.
+              - Na tela inicial, tocar em uma tarefa ou hábito abre a edição e tocar e segurar abre as opções **Testar alarme** e **Excluir** (com confirmação).
+            - **Widgets de Tela Inicial (Hábito 2x2 e Calendário de Tarefas 4x2):**
+              - Widget de Hábito com progresso diário, **+1 Sim** direto na tela inicial e calendário mensal de conclusões.
+              - Widget de Calendário 4x2 interativo com seleção de dias, indicadores de tarefas futuras, conclusão via checkbox e abertura direta da tarefa no app.
           files: |
             taskmgr-${{ github.ref_name }}.apk

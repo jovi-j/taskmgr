@@ -11,6 +11,8 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.jovij.taskmgr.TaskMgrApplication
+import com.taskmgr.widget.CalendarWidgetUpdater
+import com.taskmgr.widget.HabitWidgetUpdater
 import java.util.concurrent.TimeUnit
 
 class ReconcileAlarmsWorker(
@@ -21,6 +23,8 @@ class ReconcileAlarmsWorker(
     override suspend fun doWork(): Result {
         val app = applicationContext as? TaskMgrApplication ?: return Result.failure()
         app.container.reminderScheduler.reconcileAll(System.currentTimeMillis())
+        HabitWidgetUpdater.syncAllWidgets(applicationContext)
+        CalendarWidgetUpdater.syncAllWidgets(applicationContext)
         return Result.success()
     }
 

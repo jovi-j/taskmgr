@@ -16,7 +16,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         HabitLogEntity::class,
         CalendarSyncEventEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class TaskMgrDatabase : RoomDatabase() {
@@ -28,6 +28,30 @@ abstract class TaskMgrDatabase : RoomDatabase() {
     abstract fun calendarSyncDao(): CalendarSyncDao
 
     companion object {
+        fun seedDefaultMomentsSql(db: SupportSQLiteDatabase) {
+            val defaults = listOf(
+                Triple("Manhã", 6 * 60, 12 * 60),
+                Triple("Tarde", 12 * 60, 18 * 60),
+                Triple("Noite", 18 * 60, 22 * 60),
+                Triple("Todo o dia", 6 * 60, 22 * 60)
+            )
+            for ((name, startMin, endMin) in defaults) {
+                db.execSQL(
+                    """
+                    INSERT INTO `moments` (
+                        `name`, `startMinutesOfDay`, `endMinutesOfDay`, `daysOfWeekMask`,
+                        `reminderMode`, `intervalMinutes`, `specificTimesCsv`,
+                        `aggressiveFullScreen`, `vibrationEnabled`, `isEnabled`
+                    )
+                    SELECT '$name', $startMin, $endMin, 127, 'INTERVAL_MINUTES', 60, NULL, 1, 1, 1
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM `moments` WHERE LOWER(`name`) = LOWER('$name')
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(
@@ -117,6 +141,15 @@ abstract class TaskMgrDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `activeDaysMask` INTEGER NOT NULL DEFAULT 127")
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `hasEndDate` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("UPDATE `tasks` SET `hasEndDate` = 1 WHERE `startEpochDay` >= 0 AND `endEpochDay` > `startEpochDay`")
+                seedDefaultMomentsSql(db)
+            }
+        }
+
         @Volatile
         private var INSTANCE: TaskMgrDatabase? = null
 
@@ -127,7 +160,13 @@ abstract class TaskMgrDatabase : RoomDatabase() {
                     TaskMgrDatabase::class.java,
                     "taskmgr.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                    .addCallback(object : RoomDatabase.Callback() {
+                        override fun onCreate(db: SupportSQLiteDatabase) {
+                            super.onCreate(db)
+                            seedDefaultMomentsSql(db)
+                        }
+                    })
                     .fallbackToDestructiveMigration(dropAllTables = true)
                     .build()
                     .also { INSTANCE = it }

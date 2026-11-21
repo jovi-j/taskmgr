@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">taskmgr</string>
+    <string name="habit_widget_label">Hábito (2x2)</string>
+    <string name="habit_widget_description">Mostra um hábito selecionado com progresso diário e registro rápido ao tocar no ícone.</string>
+    <string name="calendar_widget_label">Calendário e Tarefas (4x2)</string>
+    <string name="calendar_widget_description">Calendário mensal com tarefas de hoje e próximos dias, com conclusão rápida pelo checkbox.</string>
 </resources>

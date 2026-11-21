@@ -67,6 +67,11 @@ object TaskCalendarEventMapper {
 
         val startMinutes = task.scheduledMinutesOfDay ?: moment?.startMinutesOfDay
         val isAllDay = startMinutes == null
+        val effectiveSyncEndDay = if (task.endEpochDay >= Task.OPEN_ENDED_EPOCH_DAY) {
+            task.startEpochDay
+        } else {
+            task.endEpochDay
+        }
 
         val (startMillis, endMillis, tzId) = if (isAllDay) {
             // CalendarContract requires all-day events in UTC midnight boundaries (exclusive end day)
@@ -74,7 +79,7 @@ object TaskCalendarEventMapper {
                 .atStartOfDay(ZoneOffset.UTC)
                 .toInstant()
                 .toEpochMilli()
-            val endUtc = LocalDate.ofEpochDay(task.endEpochDay + 1L)
+            val endUtc = LocalDate.ofEpochDay(effectiveSyncEndDay + 1L)
                 .atStartOfDay(ZoneOffset.UTC)
                 .toInstant()
                 .toEpochMilli()
@@ -92,7 +97,7 @@ object TaskCalendarEventMapper {
             } else {
                 (normalizedStart + 30).coerceAtMost(1439)
             }
-            val endLocal = LocalDate.ofEpochDay(task.endEpochDay)
+            val endLocal = LocalDate.ofEpochDay(effectiveSyncEndDay)
                 .atTime(LocalTime.of(endMinutes / 60, endMinutes % 60))
                 .atZone(zoneId)
             val startEpoch = startLocal.toInstant().toEpochMilli()

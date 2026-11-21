@@ -107,12 +107,63 @@ data class TaskAdvanceReminder(
     }
 }
 
+object DefaultMoments {
+    val ALL: List<Moment> = listOf(
+        Moment(
+            name = "Manhã",
+            startMinutesOfDay = 6 * 60,
+            endMinutesOfDay = 12 * 60,
+            daysOfWeekMask = 0b1111111,
+            reminderMode = ReminderMode.INTERVAL_MINUTES,
+            intervalMinutes = 60,
+            aggressiveFullScreen = true,
+            vibrationEnabled = true,
+            isEnabled = true
+        ),
+        Moment(
+            name = "Tarde",
+            startMinutesOfDay = 12 * 60,
+            endMinutesOfDay = 18 * 60,
+            daysOfWeekMask = 0b1111111,
+            reminderMode = ReminderMode.INTERVAL_MINUTES,
+            intervalMinutes = 60,
+            aggressiveFullScreen = true,
+            vibrationEnabled = true,
+            isEnabled = true
+        ),
+        Moment(
+            name = "Noite",
+            startMinutesOfDay = 18 * 60,
+            endMinutesOfDay = 22 * 60,
+            daysOfWeekMask = 0b1111111,
+            reminderMode = ReminderMode.INTERVAL_MINUTES,
+            intervalMinutes = 60,
+            aggressiveFullScreen = true,
+            vibrationEnabled = true,
+            isEnabled = true
+        ),
+        Moment(
+            name = "Todo o dia",
+            startMinutesOfDay = 6 * 60,
+            endMinutesOfDay = 22 * 60,
+            daysOfWeekMask = 0b1111111,
+            reminderMode = ReminderMode.INTERVAL_MINUTES,
+            intervalMinutes = 60,
+            aggressiveFullScreen = true,
+            vibrationEnabled = true,
+            isEnabled = true
+        )
+    )
+}
+
 data class Task(
     val id: Long = 0L,
     val title: String,
     val notes: String? = null,
     val startEpochDay: Long = UNSCHEDULED_EPOCH_DAY,
     val endEpochDay: Long = UNSCHEDULED_EPOCH_DAY,
+    val activeDaysMask: Int = 0b1111111,
+    val hasEndDate: Boolean = false,
     val scheduledMinutesOfDay: Int? = null,
     val momentId: Long? = null,
     val repeatIntervalMinutes: Int? = null,
@@ -130,6 +181,28 @@ data class Task(
     val isUnscheduledInbox: Boolean
         get() = !hasDate && scheduledMinutesOfDay == null
 
+    val isOpenEnded: Boolean
+        get() = hasDate && (!hasEndDate || endEpochDay >= OPEN_ENDED_EPOCH_DAY)
+
+    fun isActiveOnDay(
+        epochDay: Long,
+        zoneId: java.time.ZoneId = java.time.ZoneId.systemDefault()
+    ): Boolean {
+        if (!hasDate) return false
+        if (epochDay < startEpochDay) return false
+        if (!com.taskmgr.domain.logic.DaysOfWeekMask.containsEpochDay(activeDaysMask, epochDay)) return false
+        if (endEpochDay >= OPEN_ENDED_EPOCH_DAY) {
+            if (isCompleted) {
+                val completedDay = completedAtEpochMillis?.takeIf { it > 0L }?.let {
+                    java.time.Instant.ofEpochMilli(it).atZone(zoneId).toLocalDate().toEpochDay()
+                } ?: startEpochDay
+                return epochDay <= completedDay
+            }
+            return true
+        }
+        return epochDay <= endEpochDay
+    }
+
     fun isCompletedOnDay(
         epochDay: Long,
         zoneId: java.time.ZoneId = java.time.ZoneId.systemDefault()
@@ -143,7 +216,7 @@ data class Task(
                 .toEpochDay()
             completedDay == epochDay
         } else {
-            hasDate && epochDay in startEpochDay..endEpochDay
+            isActiveOnDay(epochDay, zoneId)
         }
     }
 
@@ -154,6 +227,7 @@ data class Task(
 
     companion object {
         const val UNSCHEDULED_EPOCH_DAY: Long = -1L
+        const val OPEN_ENDED_EPOCH_DAY: Long = 365_242L
     }
 }
 

@@ -26,7 +26,8 @@ import kotlinx.coroutines.flow.map
 import java.time.ZoneId
 
 class HabitGroupRepositoryImpl(
-    private val habitGroupDao: HabitGroupDao
+    private val habitGroupDao: HabitGroupDao,
+    private val onHabitGroupsChanged: () -> Unit = {}
 ) : HabitGroupRepository {
 
     override fun observeGroups(): Flow<List<HabitGroup>> =
@@ -34,11 +35,13 @@ class HabitGroupRepositoryImpl(
 
     override suspend fun upsert(group: HabitGroup): Long {
         val insertedId = habitGroupDao.upsert(group.toEntity())
+        onHabitGroupsChanged()
         return if (group.id != 0L) group.id else insertedId
     }
 
     override suspend fun delete(groupId: Long) {
         habitGroupDao.deleteById(groupId)
+        onHabitGroupsChanged()
     }
 }
 
@@ -68,11 +71,15 @@ class TaskRepositoryImpl(
     private val momentDao: MomentDao,
     private val schedulerProvider: () -> ReminderScheduler,
     private val alertDispatcherProvider: () -> FullScreenAlertDispatcher,
-    private val zoneIdProvider: () -> ZoneId = { ZoneId.systemDefault() }
+    private val zoneIdProvider: () -> ZoneId = { ZoneId.systemDefault() },
+    private val onTasksChanged: () -> Unit = {}
 ) : TaskRepository {
 
     override fun observeTasksForDay(epochDay: Long): Flow<List<Task>> =
-        taskDao.observeForDay(epochDay).map { list -> list.map { it.toDomain() } }
+        taskDao.observeForDay(epochDay).map { list ->
+            val zone = zoneIdProvider()
+            list.map { it.toDomain() }.filter { it.isActiveOnDay(epochDay, zone) }
+        }
 
     override fun observeAllTasks(): Flow<List<Task>> =
         taskDao.observeAll().map { list -> list.map { it.toDomain() } }
@@ -90,7 +97,8 @@ class TaskRepositoryImpl(
         val normalizedTask = if (!task.hasDate) {
             task.copy(
                 startEpochDay = Task.UNSCHEDULED_EPOCH_DAY,
-                endEpochDay = Task.UNSCHEDULED_EPOCH_DAY
+                endEpochDay = Task.UNSCHEDULED_EPOCH_DAY,
+                hasEndDate = false
             )
         } else {
             require(task.endEpochDay >= task.startEpochDay) {
@@ -109,6 +117,7 @@ class TaskRepositoryImpl(
         } else {
             schedulerProvider().scheduleNextForTask(finalId)
         }
+        onTasksChanged()
         return finalId
     }
 
@@ -120,6 +129,7 @@ class TaskRepositoryImpl(
         } else {
             schedulerProvider().scheduleNextForTask(taskId)
         }
+        onTasksChanged()
     }
 
     override suspend fun snooze(taskId: Long, option: SnoozeOption, nowEpochMillis: Long) {
@@ -136,12 +146,14 @@ class TaskRepositoryImpl(
         taskDao.setSnoozedUntil(taskId, updated.snoozedUntilEpochMillis)
         alertDispatcherProvider().dismissReminder(ReminderItemType.TASK, taskId)
         schedulerProvider().scheduleNextForTask(taskId)
+        onTasksChanged()
     }
 
     override suspend fun delete(taskId: Long) {
         schedulerProvider().cancelTaskReminders(taskId)
         alertDispatcherProvider().dismissReminder(ReminderItemType.TASK, taskId)
         taskDao.deleteById(taskId)
+        onTasksChanged()
     }
 }
 
@@ -149,7 +161,8 @@ class HabitRepositoryImpl(
     private val habitDao: HabitDao,
     private val habitLogDao: HabitLogDao,
     private val schedulerProvider: () -> ReminderScheduler,
-    private val alertDispatcherProvider: () -> FullScreenAlertDispatcher
+    private val alertDispatcherProvider: () -> FullScreenAlertDispatcher,
+    private val onHabitsChanged: () -> Unit = {}
 ) : HabitRepository {
 
     override fun observeHabits(): Flow<List<Habit>> =
@@ -179,6 +192,7 @@ class HabitRepositoryImpl(
         } else {
             schedulerProvider().cancelHabitRemindersForDay(finalId, todayEpochDay)
         }
+        onHabitsChanged()
         return finalId
     }
 
@@ -198,6 +212,7 @@ class HabitRepositoryImpl(
             alertDispatcherProvider().dismissReminder(ReminderItemType.HABIT, habitId)
         }
         schedulerProvider().scheduleNextForHabit(habitId, epochDay)
+        onHabitsChanged()
         return updated
     }
 
@@ -223,6 +238,7 @@ class HabitRepositoryImpl(
             alertDispatcherProvider().dismissReminder(ReminderItemType.HABIT, habitId)
         }
         schedulerProvider().scheduleNextForHabit(habitId, epochDay)
+        onHabitsChanged()
         return updated
     }
 
@@ -248,6 +264,7 @@ class HabitRepositoryImpl(
             schedulerProvider().cancelHabitRemindersForDay(habitId, epochDay)
         }
         schedulerProvider().scheduleNextForHabit(habitId, epochDay)
+        onHabitsChanged()
         return updated
     }
 
@@ -256,5 +273,6 @@ class HabitRepositoryImpl(
         schedulerProvider().cancelHabitRemindersForDay(habitId, todayEpochDay)
         alertDispatcherProvider().dismissReminder(ReminderItemType.HABIT, habitId)
         habitDao.deleteById(habitId)
+        onHabitsChanged()
     }
 }

@@ -14,8 +14,12 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -25,28 +29,38 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -56,8 +70,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jovij.taskmgr.ui.theme.IndigoContainer
@@ -95,6 +112,18 @@ private val DAY_HEADER_TITLE_FORMATTER: DateTimeFormatter =
     DateTimeFormatter.ofPattern("EEE, dd/MM", LOCALE_PT_BR)
 private val DAY_HEADER_SUBTITLE_FORMATTER: DateTimeFormatter =
     DateTimeFormatter.ofPattern("dd 'de' MMMM", LOCALE_PT_BR)
+
+private sealed interface TodayCardActionTarget {
+    val title: String
+
+    data class TaskTarget(val task: Task) : TodayCardActionTarget {
+        override val title: String get() = task.title
+    }
+
+    data class HabitTarget(val habitWithLog: HabitWithLog) : TodayCardActionTarget {
+        override val title: String get() = habitWithLog.habit.title
+    }
+}
 
 @Composable
 fun TodayScreen(
@@ -139,6 +168,8 @@ fun TodayScreen(
         }
 
     var showDatePicker by remember { mutableStateOf(false) }
+    var actionSheetTarget by remember { mutableStateOf<TodayCardActionTarget?>(null) }
+    var deleteConfirmTarget by remember { mutableStateOf<TodayCardActionTarget?>(null) }
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -231,8 +262,7 @@ fun TodayScreen(
                         habitWithLog = habitWithLog,
                         onIncrement = { onIncrementHabit(habitWithLog.habit.id, uiState.selectedEpochDay) },
                         onEdit = { onEditHabit(habitWithLog.habit) },
-                        onDelete = { onDeleteHabit(habitWithLog.habit.id) },
-                        onTestAlarm = { onTestHabitAlarm(habitWithLog, uiState.selectedEpochDay) }
+                        onLongClick = { actionSheetTarget = TodayCardActionTarget.HabitTarget(habitWithLog) }
                     )
                 }
                 items(
@@ -244,8 +274,7 @@ fun TodayScreen(
                         task = task,
                         onToggleCompleted = { onToggleTask(task) },
                         onEdit = { onEditTask(task) },
-                        onDelete = { onDeleteTask(task.id) },
-                        onTestAlarm = { onTestTaskAlarm(task) }
+                        onLongClick = { actionSheetTarget = TodayCardActionTarget.TaskTarget(task) }
                     )
                 }
             }
@@ -265,6 +294,207 @@ fun TodayScreen(
                 showDatePicker = false
             }
         )
+    }
+
+    actionSheetTarget?.let { target ->
+        TodayItemLongPressSheet(
+            target = target,
+            onDismiss = { actionSheetTarget = null },
+            onTestAlarm = {
+                actionSheetTarget = null
+                when (target) {
+                    is TodayCardActionTarget.TaskTarget -> onTestTaskAlarm(target.task)
+                    is TodayCardActionTarget.HabitTarget -> onTestHabitAlarm(target.habitWithLog, uiState.selectedEpochDay)
+                }
+            },
+            onRequestDelete = {
+                actionSheetTarget = null
+                deleteConfirmTarget = target
+            }
+        )
+    }
+
+    deleteConfirmTarget?.let { target ->
+        val isTask = target is TodayCardActionTarget.TaskTarget
+        AlertDialog(
+            onDismissRequest = { deleteConfirmTarget = null },
+            containerColor = OledSurface,
+            titleContentColor = TextPrimary,
+            textContentColor = TextSecondary,
+            title = {
+                Text(
+                    text = if (isTask) "Excluir tarefa?" else "Excluir hábito?",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = if (isTask) {
+                        "Deseja realmente excluir a tarefa \"${target.title}\"? Esta ação não pode ser desfeita."
+                    } else {
+                        "Deseja realmente excluir o hábito \"${target.title}\"? Todo o progresso registrado também será removido."
+                    }
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        deleteConfirmTarget = null
+                        when (target) {
+                            is TodayCardActionTarget.TaskTarget -> onDeleteTask(target.task.id)
+                            is TodayCardActionTarget.HabitTarget -> onDeleteHabit(target.habitWithLog.habit.id)
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) {
+                    Text("Excluir", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteConfirmTarget = null }) {
+                    Text("Cancelar", color = TextSecondary)
+                }
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TodayItemLongPressSheet(
+    target: TodayCardActionTarget,
+    onDismiss: () -> Unit,
+    onTestAlarm: () -> Unit,
+    onRequestDelete: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val isTask = target is TodayCardActionTarget.TaskTarget
+    val errorColor = MaterialTheme.colorScheme.error
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = OledSurface,
+        contentColor = TextPrimary,
+        scrimColor = Color.Black.copy(alpha = 0.65f),
+        dragHandle = { BottomSheetDefaults.DragHandle(color = OledBorder) }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Column(modifier = Modifier.padding(horizontal = 4.dp)) {
+                Text(
+                    text = if (isTask) "Tarefa" else "Hábito",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = TextSecondary
+                )
+                Text(
+                    text = target.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            HorizontalDivider(color = OledBorder, thickness = 1.dp)
+
+            Surface(
+                onClick = onTestAlarm,
+                shape = RoundedCornerShape(14.dp),
+                color = OledSurfaceElevated,
+                border = BorderStroke(1.dp, OledBorder),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(IndigoPrimary.copy(alpha = 0.16f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        NerdIcon(
+                            glyph = if (isTask) NerdIcons.BellRing else NerdIcons.Alarm,
+                            color = IndigoPrimary,
+                            size = 18.sp
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Testar alarme",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextPrimary
+                        )
+                        Text(
+                            text = "Dispara o lembrete em tela cheia agora",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary
+                        )
+                    }
+                }
+            }
+
+            Surface(
+                onClick = onRequestDelete,
+                shape = RoundedCornerShape(14.dp),
+                color = errorColor.copy(alpha = 0.10f),
+                border = BorderStroke(1.dp, errorColor.copy(alpha = 0.45f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(errorColor.copy(alpha = 0.18f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        NerdIcon(
+                            glyph = NerdIcons.DeleteOutline,
+                            color = errorColor,
+                            size = 18.sp
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Excluir",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = errorColor
+                        )
+                        Text(
+                            text = if (isTask) "Remover esta tarefa" else "Remover este hábito e histórico",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+        }
     }
 }
 
@@ -546,16 +776,16 @@ private fun MetaBadge(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
 @Composable
 private fun TaskCard(
     task: Task,
     onToggleCompleted: () -> Unit,
     onEdit: () -> Unit,
-    onDelete: () -> Unit,
-    onTestAlarm: () -> Unit,
+    onLongClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val haptics = LocalHapticFeedback.current
     val titleColor by animateColorAsState(
         targetValue = if (task.isCompleted) TextDisabled else TextPrimary,
         animationSpec = tween(220),
@@ -567,7 +797,18 @@ private fun TaskCard(
         colors = CardDefaults.cardColors(containerColor = OledSurface),
         border = BorderStroke(1.dp, OledBorder)
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .combinedClickable(
+                    onClick = onEdit,
+                    onLongClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onLongClick()
+                    }
+                )
+                .padding(14.dp)
+        ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
@@ -602,10 +843,17 @@ private fun TaskCard(
                         task.scheduledMinutesOfDay?.let {
                             MetaBadge(glyph = NerdIcons.ClockOutline, text = formatMinutes(it), monospace = true)
                         }
-                        if (task.endEpochDay > task.startEpochDay) {
+                        if (task.endEpochDay > task.startEpochDay && task.endEpochDay < Task.OPEN_ENDED_EPOCH_DAY) {
+                            val endFormatted = LocalDate.ofEpochDay(task.endEpochDay)
+                                .format(DateTimeFormatter.ofPattern("dd/MM"))
                             MetaBadge(
                                 glyph = NerdIcons.Calendar,
-                                text = "${(task.endEpochDay - task.startEpochDay) + 1} dias"
+                                text = "até $endFormatted"
+                            )
+                        } else if (task.activeDaysMask != com.taskmgr.domain.logic.DaysOfWeekMask.ALL_DAYS) {
+                            MetaBadge(
+                                glyph = NerdIcons.Repeat,
+                                text = "Recorrente"
                             )
                         }
                         if (task.aggressiveFullScreen) {
@@ -620,27 +868,6 @@ private fun TaskCard(
                         }
                     }
                 }
-                IconButton(onClick = onTestAlarm) {
-                    NerdIcon(
-                        glyph = NerdIcons.BellRing,
-                        color = IndigoPrimary,
-                        size = 19.sp
-                    )
-                }
-                IconButton(onClick = onEdit) {
-                    NerdIcon(
-                        glyph = NerdIcons.Pencil,
-                        color = TextSecondary,
-                        size = 19.sp
-                    )
-                }
-                IconButton(onClick = onDelete) {
-                    NerdIcon(
-                        glyph = NerdIcons.DeleteOutline,
-                        color = MaterialTheme.colorScheme.error,
-                        size = 19.sp
-                    )
-                }
             }
             if (!task.notes.isNullOrBlank()) {
                 Text(
@@ -654,16 +881,16 @@ private fun TaskCard(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
 @Composable
 private fun HabitCard(
     habitWithLog: HabitWithLog,
     onIncrement: () -> Unit,
     onEdit: () -> Unit,
-    onDelete: () -> Unit,
-    onTestAlarm: () -> Unit,
+    onLongClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val haptics = LocalHapticFeedback.current
     val habit = habitWithLog.habit
     val progressText = HabitCompletionCalculator.formatProgressText(habit, habitWithLog.accumulatedAmount)
     val buttonLabel = HabitCompletionCalculator.formatIncrementButtonLabel(habit)
@@ -682,7 +909,18 @@ private fun HabitCard(
         colors = CardDefaults.cardColors(containerColor = OledSurface),
         border = BorderStroke(1.dp, OledBorder)
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .combinedClickable(
+                    onClick = onEdit,
+                    onLongClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onLongClick()
+                    }
+                )
+                .padding(14.dp)
+        ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
@@ -768,28 +1006,6 @@ private fun HabitCard(
                             )
                         }
                     }
-                }
-
-                IconButton(onClick = onTestAlarm) {
-                    NerdIcon(
-                        glyph = NerdIcons.Alarm,
-                        color = MaterialTheme.colorScheme.primary,
-                        size = 19.sp
-                    )
-                }
-                IconButton(onClick = onEdit) {
-                    NerdIcon(
-                        glyph = NerdIcons.Pencil,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        size = 19.sp
-                    )
-                }
-                IconButton(onClick = onDelete) {
-                    NerdIcon(
-                        glyph = NerdIcons.DeleteOutline,
-                        color = MaterialTheme.colorScheme.error,
-                        size = 19.sp
-                    )
                 }
             }
 
