@@ -347,12 +347,16 @@ object MarkdownTransferEngine {
             for (task in sortedTasks) {
                 val check = if (task.isCompleted) "x" else " "
                 val badges = mutableListOf<String>()
-                val startStr = LocalDate.ofEpochDay(task.startEpochDay).toString()
-                val endStr = LocalDate.ofEpochDay(task.endEpochDay).toString()
-                val dateBadge = if (task.startEpochDay == task.endEpochDay) {
-                    "`📅 $startStr`"
+                val dateBadge = if (!task.hasDate) {
+                    "`📅 Sem data`"
                 } else {
-                    "`📅 $startStr..$endStr`"
+                    val startStr = LocalDate.ofEpochDay(task.startEpochDay).toString()
+                    val endStr = LocalDate.ofEpochDay(task.endEpochDay).toString()
+                    if (task.startEpochDay == task.endEpochDay) {
+                        "`📅 $startStr`"
+                    } else {
+                        "`📅 $startStr..$endStr`"
+                    }
                 }
                 badges.add(dateBadge)
 
@@ -602,6 +606,7 @@ object MarkdownTransferEngine {
     }
 
     private fun serializeTaskMeta(task: Task): String {
+        val advanceSpec = com.taskmgr.data.local.serializeAdvanceRemindersSpec(task.advanceReminders).orEmpty()
         return buildMetaComment(
             prefix = META_TASK_PREFIX,
             pairs = listOf(
@@ -617,7 +622,8 @@ object MarkdownTransferEngine {
                 "vibrate" to task.vibrationEnabled.toString(),
                 "completed" to task.isCompleted.toString(),
                 "snoozed" to (task.snoozedUntilEpochMillis?.toString() ?: ""),
-                "urgency" to task.urgency.name
+                "urgency" to task.urgency.name,
+                "advance" to advanceSpec
             )
         )
     }
@@ -627,7 +633,11 @@ object MarkdownTransferEngine {
         val title = decodeB64(map["title_b64"]).takeIf { it.isNotBlank() } ?: return null
         val notes = decodeB64(map["notes_b64"]).takeIf { it.isNotBlank() }
         val startDay = map["startDay"]?.toLongOrNull() ?: defaultEpochDay
-        val endDay = map["endDay"]?.toLongOrNull()?.coerceAtLeast(startDay) ?: startDay
+        val endDay = if (startDay < 0L) {
+            Task.UNSCHEDULED_EPOCH_DAY
+        } else {
+            map["endDay"]?.toLongOrNull()?.coerceAtLeast(startDay) ?: startDay
+        }
         val schedMin = map["schedMin"]?.takeIf { it.isNotBlank() }?.toIntOrNull()
         val momentId = map["momentId"]?.takeIf { it.isNotBlank() }?.toLongOrNull()
         val repeatMin = map["repeatMin"]?.takeIf { it.isNotBlank() }?.toIntOrNull()
@@ -635,6 +645,10 @@ object MarkdownTransferEngine {
         val vibrate = map["vibrate"]?.toBooleanStrictOrNull() ?: true
         val completed = map["completed"]?.toBooleanStrictOrNull() ?: false
         val snoozed = map["snoozed"]?.takeIf { it.isNotBlank() }?.toLongOrNull()
+        val parsedUrgency = map["urgency"]?.let {
+            runCatching { TaskUrgency.valueOf(it) }.getOrNull()
+        } ?: TaskUrgency.LOW
+        val advanceReminders = com.taskmgr.data.local.parseAdvanceRemindersSpec(map["advance"])
 
         return Task(
             id = id,
@@ -649,9 +663,8 @@ object MarkdownTransferEngine {
             vibrationEnabled = vibrate,
             isCompleted = completed,
             snoozedUntilEpochMillis = snoozed,
-            urgency = map["urgency"]?.let {
-                runCatching { TaskUrgency.valueOf(it) }.getOrNull()
-            } ?: TaskUrgency.LOW
+            urgency = parsedUrgency,
+            advanceReminders = advanceReminders
         )
     }
 

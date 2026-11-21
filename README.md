@@ -13,11 +13,11 @@ Aplicativo Android nativo para gerenciamento de **Tarefas**, **Hábitos com unid
 - **5 Abas na Barra Inferior + Configurações no Topo:**
     1. **Hoje:** Progresso diário, tarefas (com badge de urgência colorido da Matriz de Eisenhower) e hábitos agrupados por Momento do dia.
     2. **Calendário:** Visão mensal com indicadores visuais, resumo de retenção de hábitos e **edição retroativa** (clique em qualquer dia anterior para ajustar exatamente quanto de cada hábito foi feito ou incluir hábitos retroativamente).
-    3. **Matriz:** Visão dedicada com os **4 quadrantes da Matriz de Eisenhower** para tarefas:
+    3. **Matriz:** Visão em grade 2x2 com os **4 quadrantes da Matriz de Eisenhower** para tarefas:
         - **Importante e Urgente (`Urgência Muito Alta`) — Vermelho (`#EF4444`)**
-        - **Não importante e Urgente (`Urgência Alta`) — Amarelo (`#FBBF24`)**
-        - **Importante e Não Urgente (`Urgência Média`) — Verde (`#22C55E`)**
-        - **Não importante e Não Urgente (`Urgência Baixa`) — Azul (`#3B82F6`)** *(quadrante padrão ao criar uma nova tarefa)*
+        - **Importante e Não Urgente (`Urgência Alta`) — Amarelo (`#FBBF24`)**
+        - **Não Importante e Urgente (`Urgência Média`) — Verde (`#22C55E`)**
+        - **Não Importante e Não Urgente (`Urgência Baixa`) — Azul (`#3B82F6`)** *(quadrante padrão ao criar uma nova tarefa)*
     4. **Grupos:** Criação de grupos de hábitos com cor e ícone circular (`HabitBadgeIcon`) do catálogo com mais de 180 ícones Nerd Font pesquisáveis, listando todos os hábitos dentro de cada grupo.
     5. **Momentos:** Janelas temporais do dia (ex.: `06:00 - 12:00`, ou `06:00 - 00:00` tratando meia-noite como fim do mesmo dia) com repetição configurável em `Hora(s)` e `Minuto(s)`.
     - **Config (no canto superior direito da TopAppBar):** Menu organizado em 4 subtelas (**Exportação, Sincronização e Importação**, **Permissões**, **Vibração** e **Sobre**).

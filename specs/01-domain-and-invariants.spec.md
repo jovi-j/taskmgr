@@ -26,9 +26,9 @@ system: taskmgr (Android v0.1.0)
 - Pode ter `scheduledMinutesOfDay` (`0..1439`), `momentId` (`Long?`) e/ou `repeatIntervalMinutes` (`Int? > 0`, configurado na UI com caixas `Hora(s)` e `Minuto(s)`).
 - Pertence a um dos 4 quadrantes da **Matriz de Eisenhower** (`TaskUrgency`):
     1. `VERY_HIGH`: **Importante e Urgente (Urgência Muito Alta) — Vermelho (`0xFFEF4444L`)**
-    2. `HIGH`: **Não importante e Urgente (Urgência Alta) — Amarelo (`0xFFFBBF24L`)**
-    3. `MEDIUM`: **Importante e Não Urgente (Urgência Média) — Verde (`0xFF22C55EL`)**
-    4. `LOW`: **Não importante e Não Urgente (Urgência Baixa) — Azul (`0xFF3B82F6L`)** *(padrão ao criar uma nova tarefa)*
+    2. `HIGH`: **Importante e Não Urgente (Urgência Alta) — Amarelo (`0xFFFBBF24L`)**
+    3. `MEDIUM`: **Não Importante e Urgente (Urgência Média) — Verde (`0xFF22C55EL`)**
+    4. `LOW`: **Não Importante e Não Urgente (Urgência Baixa) — Azul (`0xFF3B82F6L`)** *(padrão ao criar uma nova tarefa)*
 - Concluída quando `isCompleted == true`; ao concluir, nenhum alarme futuro do ciclo atual deve disparar.
 - **Sincronização com Calendário:** Apenas `Task` é sincronizada com o `CalendarContract.Events` do Android/Google Agenda.
 

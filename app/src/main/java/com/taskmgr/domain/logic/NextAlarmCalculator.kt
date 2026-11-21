@@ -12,7 +12,8 @@ import java.time.ZonedDateTime
 
 data class ScheduledAlarmSpec(
     val triggerAtEpochMillis: Long,
-    val targetEpochDay: Long
+    val targetEpochDay: Long,
+    val isAdvanceReminder: Boolean = false
 )
 
 object NextAlarmCalculator {
@@ -23,14 +24,14 @@ object NextAlarmCalculator {
         nowEpochMillis: Long,
         zoneId: ZoneId
     ): ScheduledAlarmSpec? {
-        // INV-01: Completed tasks never trigger alarms
-        if (task.isCompleted) return null
+        // INV-01: Completed or unscheduled tasks never trigger alarms
+        if (task.isCompleted || !task.hasDate) return null
 
         val snoozeMillis = task.snoozedUntilEpochMillis
         if (snoozeMillis != null && snoozeMillis > nowEpochMillis) {
             val targetDay = Instant.ofEpochMilli(snoozeMillis).atZone(zoneId).toLocalDate().toEpochDay()
             if (targetDay <= task.endEpochDay) {
-                return ScheduledAlarmSpec(snoozeMillis, targetDay)
+                return ScheduledAlarmSpec(snoozeMillis, targetDay, isAdvanceReminder = false)
             }
             return null
         }
@@ -39,15 +40,49 @@ object NextAlarmCalculator {
         val firstDay = maxOf(todayEpochDay, task.startEpochDay)
         if (firstDay > task.endEpochDay) return null
 
-        val candidates = mutableListOf<Long>()
+        val regularCandidates = mutableListOf<Long>()
+        val advanceCandidates = mutableListOf<Long>()
 
         val scheduledMin = task.scheduledMinutesOfDay
+        val effectiveEventMin = scheduledMin ?: moment?.takeIf { it.isEnabled }?.startMinutesOfDay
+
+        if (effectiveEventMin != null &&
+            effectiveEventMin in 0 until MomentWindowEvaluator.MINUTES_IN_DAY &&
+            task.advanceReminders.isNotEmpty()
+        ) {
+            for (day in firstDay..task.endEpochDay) {
+                val eventMillis = toZonedDateTime(day, effectiveEventMin, zoneId).toInstant().toEpochMilli()
+                if (eventMillis <= nowEpochMillis) continue
+
+                for (advance in task.advanceReminders) {
+                    val offsetMinutes = advance.totalMinutesBefore
+                    if (offsetMinutes <= 0L) continue
+                    val firstAdvanceMillis = eventMillis - offsetMinutes * 60_000L
+                    if (firstAdvanceMillis > nowEpochMillis && firstAdvanceMillis < eventMillis) {
+                        advanceCandidates.add(firstAdvanceMillis)
+                    } else {
+                        val repMin = advance.repeatIntervalMinutes
+                        if (repMin != null && repMin > 0) {
+                            var nextRep = firstAdvanceMillis + repMin * 60_000L
+                            while (nextRep < eventMillis) {
+                                if (nextRep > nowEpochMillis) {
+                                    advanceCandidates.add(nextRep)
+                                    break
+                                }
+                                nextRep += repMin * 60_000L
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         if (scheduledMin != null && scheduledMin in 0 until MomentWindowEvaluator.MINUTES_IN_DAY) {
             for (day in firstDay..task.endEpochDay) {
                 val baseZdt = toZonedDateTime(day, scheduledMin, zoneId)
                 val baseMillis = baseZdt.toInstant().toEpochMilli()
                 if (baseMillis > nowEpochMillis) {
-                    candidates.add(baseMillis)
+                    regularCandidates.add(baseMillis)
                 }
                 val repeatMin = task.repeatIntervalMinutes
                 if (repeatMin != null && repeatMin > 0) {
@@ -55,7 +90,7 @@ object NextAlarmCalculator {
                     var nextRepeat = baseMillis + repeatMin * 60_000L
                     while (nextRepeat <= endOfDayMillis) {
                         if (nextRepeat > nowEpochMillis) {
-                            candidates.add(nextRepeat)
+                            regularCandidates.add(nextRepeat)
                             break
                         }
                         nextRepeat += repeatMin * 60_000L
@@ -74,13 +109,27 @@ object NextAlarmCalculator {
                 overrideIntervalMinutes = if (scheduledMin == null) task.repeatIntervalMinutes else null
             )
             if (momentNext != null) {
-                candidates.add(momentNext)
+                regularCandidates.add(momentNext)
             }
         }
 
-        val earliest = candidates.minOrNull() ?: return null
+        val earliestAdvance = advanceCandidates.minOrNull()
+        val earliestRegular = regularCandidates.minOrNull()
+
+        val (earliest, isAdvance) = when {
+            earliestAdvance != null && (earliestRegular == null || earliestAdvance < earliestRegular) ->
+                earliestAdvance to true
+            earliestRegular != null ->
+                earliestRegular to false
+            else -> return null
+        }
+
         val earliestDay = Instant.ofEpochMilli(earliest).atZone(zoneId).toLocalDate().toEpochDay()
-        return ScheduledAlarmSpec(earliest, earliestDay)
+        return ScheduledAlarmSpec(
+            triggerAtEpochMillis = earliest,
+            targetEpochDay = earliestDay,
+            isAdvanceReminder = isAdvance
+        )
     }
 
     fun calculateNextForHabit(

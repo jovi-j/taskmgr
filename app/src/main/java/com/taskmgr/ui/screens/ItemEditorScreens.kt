@@ -235,12 +235,17 @@ private fun TaskDetailsSection(
 @Composable
 private fun TaskUrgencySection(
     selectedUrgency: TaskUrgency,
+    isUnscheduled: Boolean,
     onSelectUrgency: (TaskUrgency) -> Unit
 ) {
     val options = remember { TaskUrgency.entries.sortedBy { it.sortOrder } }
     EditorSectionCard(title = "Matriz de Eisenhower (Urgência)", glyph = NerdIcons.Layers) {
         Text(
-            text = "Toda tarefa inicia em Urgência Baixa (Não importante e Não Urgente) por padrão.",
+            text = if (isUnscheduled && selectedUrgency == TaskUrgency.LOW) {
+                "Tarefas sem data e sem horário ficam em Urgência Baixa (Caixa de entrada) até serem planejadas."
+            } else {
+                "Toda tarefa inicia em Urgência Baixa (Não Importante e Não Urgente) por padrão, exceto quando criada diretamente em um quadrante."
+            },
             style = MaterialTheme.typography.bodySmall,
             color = TextSecondary
         )
@@ -308,18 +313,22 @@ private fun TaskUrgencySection(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TaskDateAndDurationSection(
+    useDate: Boolean,
     startEpochDay: Long,
     todayEpochDay: Long,
     durationDaysText: String,
+    onUseDateChange: (Boolean) -> Unit,
     onOpenDatePicker: () -> Unit,
     onSelectStartDay: (Long) -> Unit,
     onDurationDaysChange: (String) -> Unit
 ) {
     EditorSectionCard(title = "Data e Duração", glyph = NerdIcons.Calendar) {
-        DateSelectorField(
-            label = "Data de início",
-            epochDay = startEpochDay,
-            onClick = onOpenDatePicker
+        EditorSwitchRow(
+            glyph = NerdIcons.Calendar,
+            label = "Definir data",
+            subtitle = if (useDate) "Agendada para uma data específica" else "Sem data (vai para a Caixa de entrada / Urgência Baixa)",
+            checked = useDate,
+            onCheckedChange = onUseDateChange
         )
 
         FlowRow(
@@ -327,32 +336,52 @@ private fun TaskDateAndDurationSection(
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             FilterChip(
-                selected = startEpochDay == todayEpochDay - 1,
-                onClick = { onSelectStartDay(todayEpochDay - 1) },
-                label = { Text("Ontem") }
+                selected = !useDate,
+                onClick = { onUseDateChange(false) },
+                label = { Text("Sem data") }
             )
             FilterChip(
-                selected = startEpochDay == todayEpochDay,
-                onClick = { onSelectStartDay(todayEpochDay) },
+                selected = useDate && startEpochDay == todayEpochDay,
+                onClick = {
+                    onUseDateChange(true)
+                    onSelectStartDay(todayEpochDay)
+                },
                 label = { Text("Hoje") }
             )
             FilterChip(
-                selected = startEpochDay == todayEpochDay + 1,
-                onClick = { onSelectStartDay(todayEpochDay + 1) },
+                selected = useDate && startEpochDay == todayEpochDay + 1,
+                onClick = {
+                    onUseDateChange(true)
+                    onSelectStartDay(todayEpochDay + 1)
+                },
                 label = { Text("Amanhã") }
             )
         }
 
-        OutlinedTextField(
-            value = durationDaysText,
-            onValueChange = { onDurationDaysChange(it.filter { c -> c.isDigit() }) },
-            label = { Text("Duração em dias (1..N)") },
-            leadingIcon = { NerdIcon(glyph = NerdIcons.CalendarToday, size = 18.sp) },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            singleLine = true,
-            colors = oledTextFieldColors(),
-            modifier = Modifier.fillMaxWidth()
-        )
+        AnimatedVisibility(
+            visible = useDate,
+            enter = expandVertically(tween(200, easing = FastOutSlowInEasing)) + fadeIn(tween(160)),
+            exit = shrinkVertically(tween(160)) + fadeOut(tween(120))
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                DateSelectorField(
+                    label = "Data de início",
+                    epochDay = startEpochDay,
+                    onClick = onOpenDatePicker
+                )
+
+                OutlinedTextField(
+                    value = durationDaysText,
+                    onValueChange = { onDurationDaysChange(it.filter { c -> c.isDigit() }) },
+                    label = { Text("Duração em dias (1..N)") },
+                    leadingIcon = { NerdIcon(glyph = NerdIcons.CalendarToday, size = 18.sp) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    colors = oledTextFieldColors(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
     }
 }
 
@@ -365,17 +394,27 @@ private fun TaskTimeAndMomentSection(
     selectedMomentId: Long?,
     repeatHoursText: String,
     repeatMinutesText: String,
+    advanceReminders: List<com.taskmgr.domain.model.TaskAdvanceReminder>,
     onUseExactTimeChange: (Boolean) -> Unit,
     onOpenTimePicker: () -> Unit,
     onSelectMomentId: (Long?) -> Unit,
     onRepeatHoursChange: (String) -> Unit,
-    onRepeatMinutesChange: (String) -> Unit
+    onRepeatMinutesChange: (String) -> Unit,
+    onAddAdvanceReminder: (com.taskmgr.domain.model.TaskAdvanceReminder) -> Unit,
+    onRemoveAdvanceReminder: (Int) -> Unit
 ) {
+    val textFieldColors = oledTextFieldColors()
+    var advDaysText by remember { mutableStateOf("") }
+    var advHoursText by remember { mutableStateOf("") }
+    var advMinutesText by remember { mutableStateOf("") }
+    var advRepeatHoursText by remember { mutableStateOf("") }
+    var advRepeatMinutesText by remember { mutableStateOf("") }
+
     EditorSectionCard(title = "Horário & Momento", glyph = NerdIcons.ClockOutline) {
         EditorSwitchRow(
             glyph = NerdIcons.ClockOutline,
             label = "Horário exato",
-            subtitle = "Dispara no minuto configurado",
+            subtitle = "Dispara no minuto configurado (opcional)",
             checked = useExactTime,
             onCheckedChange = onUseExactTimeChange
         )
@@ -430,6 +469,229 @@ private fun TaskTimeAndMomentSection(
             onMinutesChange = onRepeatMinutesChange,
             isOptional = true
         )
+
+        HorizontalDivider(color = OledBorder, thickness = 1.dp)
+
+        // Advance reminders section ("Lembrar X tempo antes do horário especificado")
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            NerdIcon(glyph = NerdIcons.BellRing, color = IndigoPrimary, size = 18.sp)
+            Column {
+                Text(
+                    text = "Lembrar antes do horário especificado",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+                Text(
+                    text = "Adicione quantos lembretes antecipados quiser (dias, horas, minutos antes e frequência).",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary
+                )
+            }
+        }
+
+        // Quick preset chips
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            FilterChip(
+                selected = false,
+                onClick = {
+                    onAddAdvanceReminder(
+                        com.taskmgr.domain.model.TaskAdvanceReminder(daysBefore = 1)
+                    )
+                },
+                leadingIcon = { NerdIcon(glyph = NerdIcons.Plus, color = IndigoPrimary, size = 13.sp) },
+                label = { Text("1 dia antes") }
+            )
+            FilterChip(
+                selected = false,
+                onClick = {
+                    onAddAdvanceReminder(
+                        com.taskmgr.domain.model.TaskAdvanceReminder(hoursBefore = 2)
+                    )
+                },
+                leadingIcon = { NerdIcon(glyph = NerdIcons.Plus, color = IndigoPrimary, size = 13.sp) },
+                label = { Text("2 horas antes") }
+            )
+            FilterChip(
+                selected = false,
+                onClick = {
+                    onAddAdvanceReminder(
+                        com.taskmgr.domain.model.TaskAdvanceReminder(minutesBefore = 30)
+                    )
+                },
+                leadingIcon = { NerdIcon(glyph = NerdIcons.Plus, color = IndigoPrimary, size = 13.sp) },
+                label = { Text("30 min antes") }
+            )
+        }
+
+        if (advanceReminders.isNotEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                advanceReminders.forEachIndexed { index, item ->
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = OledSurfaceElevated,
+                        border = BorderStroke(1.dp, IndigoPrimary.copy(alpha = 0.4f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                NerdIcon(glyph = NerdIcons.Alarm, color = IndigoPrimary, size = 16.sp)
+                                Text(
+                                    text = item.formatLabelPtBr(),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = TextPrimary
+                                )
+                            }
+                            IconButton(
+                                onClick = { onRemoveAdvanceReminder(index) },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                NerdIcon(glyph = NerdIcons.Close, color = PriorityHigh, size = 15.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Custom Advance Reminder Builder
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = OledSurfaceElevated,
+            border = BorderStroke(1.dp, OledBorder),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = "Novo lembrete antecipado customizado",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = TextPrimary,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = advDaysText,
+                        onValueChange = { advDaysText = it.filter { c -> c.isDigit() } },
+                        label = { Text("Dias") },
+                        placeholder = { Text("0") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        colors = textFieldColors,
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = advHoursText,
+                        onValueChange = { advHoursText = it.filter { c -> c.isDigit() } },
+                        label = { Text("Horas") },
+                        placeholder = { Text("0") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        colors = textFieldColors,
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = advMinutesText,
+                        onValueChange = { advMinutesText = it.filter { c -> c.isDigit() } },
+                        label = { Text("Minutos") },
+                        placeholder = { Text("0") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        colors = textFieldColors,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Text(
+                    text = "Frequência de repetição deste lembrete (opcional)",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = TextSecondary
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = advRepeatHoursText,
+                        onValueChange = { advRepeatHoursText = it.filter { c -> c.isDigit() } },
+                        label = { Text("Hora(s)") },
+                        placeholder = { Text("0") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        colors = textFieldColors,
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = advRepeatMinutesText,
+                        onValueChange = { advRepeatMinutesText = it.filter { c -> c.isDigit() } },
+                        label = { Text("Minuto(s)") },
+                        placeholder = { Text("0") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        colors = textFieldColors,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                val parsedDays = advDaysText.toIntOrNull() ?: 0
+                val parsedHours = advHoursText.toIntOrNull() ?: 0
+                val parsedMinutes = advMinutesText.toIntOrNull() ?: 0
+                val parsedRepMin = ((advRepeatHoursText.toIntOrNull() ?: 0) * 60 +
+                    (advRepeatMinutesText.toIntOrNull() ?: 0)).takeIf { it > 0 }
+                val canAddCustom = (parsedDays + parsedHours + parsedMinutes) > 0
+
+                Button(
+                    onClick = {
+                        if (canAddCustom) {
+                            onAddAdvanceReminder(
+                                com.taskmgr.domain.model.TaskAdvanceReminder(
+                                    daysBefore = parsedDays,
+                                    hoursBefore = parsedHours,
+                                    minutesBefore = parsedMinutes,
+                                    repeatIntervalMinutes = parsedRepMin
+                                )
+                            )
+                            advDaysText = ""
+                            advHoursText = ""
+                            advMinutesText = ""
+                            advRepeatHoursText = ""
+                            advRepeatMinutesText = ""
+                        }
+                    },
+                    enabled = canAddCustom,
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    NerdIcon(glyph = NerdIcons.PlusCircle, size = 16.sp)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Adicionar lembrete antecipado")
+                }
+            }
+        }
     }
 }
 
@@ -444,7 +706,7 @@ private fun TaskAlertsSection(
         EditorSwitchRow(
             glyph = NerdIcons.BellAlert,
             label = "Alarme em tela cheia",
-            subtitle = "Abre sobre a tela bloqueada ou app atual",
+            subtitle = "Abre sobre a tela bloqueada ou app atual (apenas com a opção 'Sim')",
             checked = aggressiveFullScreen,
             onCheckedChange = onAggressiveFullScreenChange
         )
@@ -470,32 +732,49 @@ fun TaskEditorScreen(
     BackHandler(onBack = onBack)
 
     val todayEpochDay = remember { LocalDate.now().toEpochDay() }
-    var title by remember { mutableStateOf(initialTask?.title ?: "") }
-    var notes by remember { mutableStateOf(initialTask?.notes ?: "") }
-    var selectedUrgency by remember { mutableStateOf(initialTask?.urgency ?: defaultUrgency) }
-    var startEpochDay by remember { mutableLongStateOf(initialTask?.startEpochDay ?: defaultEpochDay) }
-    var durationDaysText by remember {
+    var title by remember(initialTask?.id) { mutableStateOf(initialTask?.title ?: "") }
+    var notes by remember(initialTask?.id) { mutableStateOf(initialTask?.notes ?: "") }
+    var selectedUrgency by remember(initialTask?.id, defaultUrgency) {
+        mutableStateOf(initialTask?.urgency ?: defaultUrgency)
+    }
+    var useDate by remember(initialTask?.id) {
         mutableStateOf(
-            if (initialTask != null) {
+            if (initialTask != null) initialTask.hasDate else false
+        )
+    }
+    var startEpochDay by remember(initialTask?.id) {
+        mutableLongStateOf(
+            if (initialTask != null && initialTask.hasDate) initialTask.startEpochDay
+            else maxOf(defaultEpochDay, todayEpochDay)
+        )
+    }
+    var durationDaysText by remember(initialTask?.id) {
+        mutableStateOf(
+            if (initialTask != null && initialTask.hasDate) {
                 ((initialTask.endEpochDay - initialTask.startEpochDay) + 1).coerceAtLeast(1).toString()
             } else "1"
         )
     }
-    var useExactTime by remember { mutableStateOf(initialTask?.scheduledMinutesOfDay != null || initialTask == null) }
-    var scheduledMinutes by remember { mutableIntStateOf(initialTask?.scheduledMinutesOfDay ?: 9 * 60) }
+    var useExactTime by remember(initialTask?.id) { mutableStateOf(initialTask?.scheduledMinutesOfDay != null) }
+    var scheduledMinutes by remember(initialTask?.id) { mutableIntStateOf(initialTask?.scheduledMinutesOfDay ?: 9 * 60) }
     var showTimePicker by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
-    var selectedMomentId by remember { mutableStateOf(initialTask?.momentId) }
+    var selectedMomentId by remember(initialTask?.id) { mutableStateOf(initialTask?.momentId) }
     val initialRepeat = initialTask?.repeatIntervalMinutes
-    var repeatHoursText by remember {
+    var repeatHoursText by remember(initialTask?.id) {
         mutableStateOf(initialRepeat?.let { (it / 60).takeIf { h -> h > 0 }?.toString() } ?: "")
     }
-    var repeatMinutesText by remember {
+    var repeatMinutesText by remember(initialTask?.id) {
         mutableStateOf(initialRepeat?.let { (it % 60).takeIf { m -> m > 0 }?.toString() } ?: "")
     }
-    var aggressiveFullScreen by remember { mutableStateOf(initialTask?.aggressiveFullScreen ?: true) }
-    var vibrationEnabled by remember { mutableStateOf(initialTask?.vibrationEnabled ?: true) }
+    var advanceReminders by remember(initialTask?.id) {
+        mutableStateOf(initialTask?.advanceReminders ?: emptyList())
+    }
+    var aggressiveFullScreen by remember(initialTask?.id) { mutableStateOf(initialTask?.aggressiveFullScreen ?: true) }
+    var vibrationEnabled by remember(initialTask?.id) { mutableStateOf(initialTask?.vibrationEnabled ?: true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    val isUnscheduled = !useDate && !useExactTime
 
     fun submit() {
         val cleanTitle = title.trim()
@@ -507,14 +786,16 @@ fun TaskEditorScreen(
         val durationDays = (durationDaysText.toLongOrNull() ?: 1L).coerceAtLeast(1L)
         val totalRepeatMin = (repeatHoursText.toIntOrNull() ?: 0) * 60 + (repeatMinutesText.toIntOrNull() ?: 0)
         val repeatInterval = totalRepeatMin.takeIf { it > 0 }
+        val finalStartDay = if (useDate) startEpochDay else Task.UNSCHEDULED_EPOCH_DAY
+        val finalEndDay = if (useDate) (startEpochDay + durationDays - 1L) else Task.UNSCHEDULED_EPOCH_DAY
 
         onSave(
             Task(
                 id = initialTask?.id ?: 0L,
                 title = cleanTitle,
                 notes = notes.trim().ifBlank { null },
-                startEpochDay = startEpochDay,
-                endEpochDay = startEpochDay + durationDays - 1L,
+                startEpochDay = finalStartDay,
+                endEpochDay = finalEndDay,
                 scheduledMinutesOfDay = parsedMinutes,
                 momentId = selectedMomentId,
                 repeatIntervalMinutes = repeatInterval,
@@ -522,7 +803,8 @@ fun TaskEditorScreen(
                 vibrationEnabled = vibrationEnabled,
                 isCompleted = initialTask?.isCompleted ?: false,
                 snoozedUntilEpochMillis = initialTask?.snoozedUntilEpochMillis,
-                urgency = selectedUrgency
+                urgency = selectedUrgency,
+                advanceReminders = advanceReminders
             )
         )
     }
@@ -622,19 +904,22 @@ fun TaskEditorScreen(
                 )
             }
 
-            item(key = "task_urgency_section", contentType = "task_urgency") {
-                TaskUrgencySection(
-                    selectedUrgency = selectedUrgency,
-                    onSelectUrgency = { selectedUrgency = it }
-                )
-            }
-
             item(key = "task_date_section", contentType = "task_date") {
                 TaskDateAndDurationSection(
+                    useDate = useDate,
                     startEpochDay = startEpochDay,
                     todayEpochDay = todayEpochDay,
                     durationDaysText = durationDaysText,
-                    onOpenDatePicker = { showDatePicker = true },
+                    onUseDateChange = { enabled ->
+                        useDate = enabled
+                        if (!enabled && !useExactTime) {
+                            selectedUrgency = TaskUrgency.LOW
+                        }
+                    },
+                    onOpenDatePicker = {
+                        useDate = true
+                        showDatePicker = true
+                    },
                     onSelectStartDay = { startEpochDay = it },
                     onDurationDaysChange = { durationDaysText = it }
                 )
@@ -648,14 +933,37 @@ fun TaskEditorScreen(
                     selectedMomentId = selectedMomentId,
                     repeatHoursText = repeatHoursText,
                     repeatMinutesText = repeatMinutesText,
-                    onUseExactTimeChange = { useExactTime = it },
+                    advanceReminders = advanceReminders,
+                    onUseExactTimeChange = { enabled ->
+                        useExactTime = enabled
+                        if (!useDate && !enabled) {
+                            selectedUrgency = TaskUrgency.LOW
+                        }
+                    },
                     onOpenTimePicker = { showTimePicker = true },
                     onSelectMomentId = { id ->
                         selectedMomentId = id
                         if (id != null && initialTask == null) useExactTime = false
                     },
                     onRepeatHoursChange = { repeatHoursText = it },
-                    onRepeatMinutesChange = { repeatMinutesText = it }
+                    onRepeatMinutesChange = { repeatMinutesText = it },
+                    onAddAdvanceReminder = { reminder ->
+                        if (reminder.totalMinutesBefore > 0L && !advanceReminders.contains(reminder)) {
+                            advanceReminders = (advanceReminders + reminder)
+                                .sortedByDescending { it.totalMinutesBefore }
+                        }
+                    },
+                    onRemoveAdvanceReminder = { index ->
+                        advanceReminders = advanceReminders.filterIndexed { i, _ -> i != index }
+                    }
+                )
+            }
+
+            item(key = "task_urgency_section", contentType = "task_urgency") {
+                TaskUrgencySection(
+                    selectedUrgency = selectedUrgency,
+                    isUnscheduled = isUnscheduled,
+                    onSelectUrgency = { selectedUrgency = it }
                 )
             }
 

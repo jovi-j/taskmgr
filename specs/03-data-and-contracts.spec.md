@@ -38,9 +38,9 @@ enum class TaskUrgency(
     val sortOrder: Int
 ) {
     VERY_HIGH("Urgência Muito Alta", "Importante e Urgente", "Muito Alta", "Vermelho", 0xFFEF4444L, 0),
-    HIGH("Urgência Alta", "Não importante e Urgente", "Alta", "Amarelo", 0xFFFBBF24L, 1),
-    MEDIUM("Urgência Média", "Importante e Não Urgente", "Média", "Verde", 0xFF22C55EL, 2),
-    LOW("Urgência Baixa", "Não importante e Não Urgente", "Baixa", "Azul", 0xFF3B82F6L, 3)
+    HIGH("Urgência Alta", "Importante e Não Urgente", "Alta", "Amarelo", 0xFFFBBF24L, 1),
+    MEDIUM("Urgência Média", "Não Importante e Urgente", "Média", "Verde", 0xFF22C55EL, 2),
+    LOW("Urgência Baixa", "Não Importante e Não Urgente", "Baixa", "Azul", 0xFF3B82F6L, 3)
 }
 
 data class Moment(

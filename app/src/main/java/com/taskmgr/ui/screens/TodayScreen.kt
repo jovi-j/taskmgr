@@ -525,7 +525,7 @@ private fun GroupSectionHeader(
 @Composable
 private fun MetaBadge(
     glyph: String,
-    text: String,
+    text: String? = null,
     tint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     monospace: Boolean = false
 ) {
@@ -534,13 +534,15 @@ private fun MetaBadge(
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         NerdIcon(glyph = glyph, color = tint, size = 13.sp)
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodySmall.let { base ->
-                if (monospace) base.copy(fontFamily = UbuntuSansMonoNerdFontFamily) else base
-            },
-            color = tint
-        )
+        if (!text.isNullOrEmpty()) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodySmall.let { base ->
+                    if (monospace) base.copy(fontFamily = UbuntuSansMonoNerdFontFamily) else base
+                },
+                color = tint
+            )
+        }
     }
 }
 
@@ -590,11 +592,11 @@ private fun TaskCard(
                     Spacer(modifier = Modifier.height(2.dp))
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        itemVerticalAlignment = Alignment.CenterVertically
                     ) {
                         MetaBadge(
                             glyph = NerdIcons.Flag,
-                            text = "${task.urgency.titlePtBr} (${task.urgency.matrixTitlePtBr})",
                             tint = Color(task.urgency.colorArgb.toInt())
                         )
                         task.scheduledMinutesOfDay?.let {

@@ -87,15 +87,25 @@ class TaskRepositoryImpl(
         taskDao.getById(taskId)?.toDomain()
 
     override suspend fun upsert(task: Task): Long {
-        require(task.endEpochDay >= task.startEpochDay) {
-            "endEpochDay (${task.endEpochDay}) must be >= startEpochDay (${task.startEpochDay})"
+        val normalizedTask = if (!task.hasDate) {
+            task.copy(
+                startEpochDay = Task.UNSCHEDULED_EPOCH_DAY,
+                endEpochDay = Task.UNSCHEDULED_EPOCH_DAY
+            )
+        } else {
+            require(task.endEpochDay >= task.startEpochDay) {
+                "endEpochDay (${task.endEpochDay}) must be >= startEpochDay (${task.startEpochDay})"
+            }
+            task
         }
-        val existing = if (task.id != 0L) taskDao.getById(task.id) else null
-        val rowId = taskDao.upsert(task.toEntity(completedAtEpochMillis = existing?.completedAtEpochMillis))
-        val finalId = if (task.id != 0L) task.id else rowId
-        if (task.isCompleted) {
+        val existing = if (normalizedTask.id != 0L) taskDao.getById(normalizedTask.id) else null
+        val rowId = taskDao.upsert(normalizedTask.toEntity(completedAtEpochMillis = existing?.completedAtEpochMillis))
+        val finalId = if (normalizedTask.id != 0L) normalizedTask.id else rowId
+        if (normalizedTask.isCompleted || !normalizedTask.hasDate) {
             schedulerProvider().cancelTaskReminders(finalId)
-            alertDispatcherProvider().dismissReminder(ReminderItemType.TASK, finalId)
+            if (normalizedTask.isCompleted) {
+                alertDispatcherProvider().dismissReminder(ReminderItemType.TASK, finalId)
+            }
         } else {
             schedulerProvider().scheduleNextForTask(finalId)
         }

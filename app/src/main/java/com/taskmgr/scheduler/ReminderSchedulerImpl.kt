@@ -30,7 +30,7 @@ class ReminderSchedulerImpl(
 
     override suspend fun scheduleNextForTask(taskId: Long) {
         val task = taskDao.getById(taskId)?.toDomain()
-        if (task == null || task.isCompleted) {
+        if (task == null || task.isCompleted || !task.hasDate) {
             cancelTaskReminders(taskId)
             return
         }
@@ -49,7 +49,8 @@ class ReminderSchedulerImpl(
             itemType = ReminderItemType.TASK,
             itemId = task.id,
             epochDay = spec.targetEpochDay,
-            triggerAtMillis = spec.triggerAtEpochMillis
+            triggerAtMillis = spec.triggerAtEpochMillis,
+            isAdvanceReminder = spec.isAdvanceReminder
         )
     }
 
@@ -82,7 +83,8 @@ class ReminderSchedulerImpl(
             itemType = ReminderItemType.HABIT,
             itemId = habit.id,
             epochDay = spec.targetEpochDay,
-            triggerAtMillis = spec.triggerAtEpochMillis
+            triggerAtMillis = spec.triggerAtEpochMillis,
+            isAdvanceReminder = false
         )
     }
 
@@ -91,6 +93,7 @@ class ReminderSchedulerImpl(
             itemType = ReminderItemType.TASK,
             itemId = taskId,
             epochDay = 0L,
+            isAdvanceReminder = false,
             flags = PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
         )
         if (pendingIntent != null) {
@@ -104,6 +107,7 @@ class ReminderSchedulerImpl(
             itemType = ReminderItemType.HABIT,
             itemId = habitId,
             epochDay = epochDay,
+            isAdvanceReminder = false,
             flags = PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
         )
         if (pendingIntent != null) {
@@ -131,12 +135,14 @@ class ReminderSchedulerImpl(
         itemType: ReminderItemType,
         itemId: Long,
         epochDay: Long,
-        triggerAtMillis: Long
+        triggerAtMillis: Long,
+        isAdvanceReminder: Boolean
     ) {
         val alarmIntent = buildAlarmPendingIntent(
             itemType = itemType,
             itemId = itemId,
             epochDay = epochDay,
+            isAdvanceReminder = isAdvanceReminder,
             flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         ) ?: return
 
@@ -163,6 +169,7 @@ class ReminderSchedulerImpl(
         itemType: ReminderItemType,
         itemId: Long,
         epochDay: Long,
+        isAdvanceReminder: Boolean,
         flags: Int
     ): PendingIntent? {
         val intent = Intent(context, ReminderAlarmReceiver::class.java).apply {
@@ -170,6 +177,7 @@ class ReminderSchedulerImpl(
             putExtra(ReminderAlarmReceiver.EXTRA_ITEM_TYPE, itemType.name)
             putExtra(ReminderAlarmReceiver.EXTRA_ITEM_ID, itemId)
             putExtra(ReminderAlarmReceiver.EXTRA_EPOCH_DAY, epochDay)
+            putExtra(ReminderAlarmReceiver.EXTRA_IS_ADVANCE_REMINDER, isAdvanceReminder)
         }
         return PendingIntent.getBroadcast(
             context,

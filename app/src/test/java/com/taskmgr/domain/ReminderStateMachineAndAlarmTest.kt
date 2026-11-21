@@ -190,4 +190,89 @@ class ReminderStateMachineAndAlarmTest {
         assertFalse(editedIncomplete.isCompleted)
         assertEquals(HabitLogState.IN_PROGRESS, ReminderStateMachine.computeHabitLogState(editedIncomplete))
     }
+
+    @Test
+    fun taskAdvanceReminders_schedules1Day2HoursAnd30MinBeforeAppointment() {
+        val appointmentDate = LocalDate.of(2026, 11, 24)
+        val appointmentEpochDay = appointmentDate.toEpochDay()
+        val task = Task(
+            id = 99L,
+            title = "Marcar consulta médica",
+            startEpochDay = appointmentEpochDay,
+            endEpochDay = appointmentEpochDay,
+            scheduledMinutesOfDay = 15 * 60, // 15:00
+            advanceReminders = listOf(
+                com.taskmgr.domain.model.TaskAdvanceReminder(daysBefore = 1),
+                com.taskmgr.domain.model.TaskAdvanceReminder(hoursBefore = 2),
+                com.taskmgr.domain.model.TaskAdvanceReminder(minutesBefore = 30)
+            )
+        )
+
+        // 1. Before 23/11/2026 15:00 -> next alarm is 23/11/2026 15:00 (1 day before)
+        val nowSunday = ZonedDateTime.of(LocalDate.of(2026, 11, 22), LocalTime.of(12, 0), zone)
+            .toInstant().toEpochMilli()
+        val alarm1DayBefore = NextAlarmCalculator.calculateNextForTask(task, null, nowSunday, zone)
+        assertNotNull(alarm1DayBefore)
+        assertTrue(alarm1DayBefore!!.isAdvanceReminder)
+        val expected1DayBefore = ZonedDateTime.of(LocalDate.of(2026, 11, 23), LocalTime.of(15, 0), zone)
+            .toInstant().toEpochMilli()
+        assertEquals(expected1DayBefore, alarm1DayBefore.triggerAtEpochMillis)
+
+        // 2. Just after 23/11/2026 15:00 -> next alarm is 24/11/2026 13:00 (2 hours before)
+        val alarm2HoursBefore = NextAlarmCalculator.calculateNextForTask(
+            task,
+            null,
+            expected1DayBefore + 1_000L,
+            zone
+        )
+        assertNotNull(alarm2HoursBefore)
+        assertTrue(alarm2HoursBefore!!.isAdvanceReminder)
+        val expected2HoursBefore = ZonedDateTime.of(appointmentDate, LocalTime.of(13, 0), zone)
+            .toInstant().toEpochMilli()
+        assertEquals(expected2HoursBefore, alarm2HoursBefore.triggerAtEpochMillis)
+
+        // 3. Just after 24/11/2026 13:00 -> next alarm is 24/11/2026 14:30 (30 minutes before)
+        val alarm30MinBefore = NextAlarmCalculator.calculateNextForTask(
+            task,
+            null,
+            expected2HoursBefore + 1_000L,
+            zone
+        )
+        assertNotNull(alarm30MinBefore)
+        assertTrue(alarm30MinBefore!!.isAdvanceReminder)
+        val expected30MinBefore = ZonedDateTime.of(appointmentDate, LocalTime.of(14, 30), zone)
+            .toInstant().toEpochMilli()
+        assertEquals(expected30MinBefore, alarm30MinBefore.triggerAtEpochMillis)
+
+        // 4. Just after 24/11/2026 14:30 -> next alarm is 24/11/2026 15:00 (the event itself)
+        val alarmEventTime = NextAlarmCalculator.calculateNextForTask(
+            task,
+            null,
+            expected30MinBefore + 1_000L,
+            zone
+        )
+        assertNotNull(alarmEventTime)
+        assertFalse(alarmEventTime!!.isAdvanceReminder)
+        val expectedEventTime = ZonedDateTime.of(appointmentDate, LocalTime.of(15, 0), zone)
+            .toInstant().toEpochMilli()
+        assertEquals(expectedEventTime, alarmEventTime.triggerAtEpochMillis)
+    }
+
+    @Test
+    fun unscheduledTask_neverTriggersAlarmAndStaysPending() {
+        val unscheduled = Task(
+            id = 100L,
+            title = "Ideia sem data nem hora",
+            startEpochDay = Task.UNSCHEDULED_EPOCH_DAY,
+            endEpochDay = Task.UNSCHEDULED_EPOCH_DAY,
+            scheduledMinutesOfDay = null
+        )
+        assertFalse(unscheduled.hasDate)
+        assertTrue(unscheduled.isUnscheduledInbox)
+        assertEquals(
+            TaskState.PENDING,
+            ReminderStateMachine.computeTaskState(unscheduled, todayEpochDay, 12 * 60, t0)
+        )
+        assertNull(NextAlarmCalculator.calculateNextForTask(unscheduled, null, t0, zone))
+    }
 }

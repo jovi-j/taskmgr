@@ -54,7 +54,8 @@ data class TaskEntity(
     val isCompleted: Boolean = false,
     val completedAtEpochMillis: Long? = null,
     val snoozedUntilEpochMillis: Long? = null,
-    val urgency: String = "LOW"
+    val urgency: String = "LOW",
+    val advanceRemindersSpec: String? = null
 )
 
 @Entity(

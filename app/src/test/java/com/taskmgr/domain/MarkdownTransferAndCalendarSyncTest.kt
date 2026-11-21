@@ -31,7 +31,7 @@ class MarkdownTransferAndCalendarSyncTest {
         )
         assertEquals(TaskUrgency.LOW, defaultTask.urgency)
         assertEquals("Urgência Baixa", TaskUrgency.LOW.titlePtBr)
-        assertEquals("Não importante e Não Urgente", TaskUrgency.LOW.matrixTitlePtBr)
+        assertEquals("Não Importante e Não Urgente", TaskUrgency.LOW.matrixTitlePtBr)
         assertEquals("Azul", TaskUrgency.LOW.colorNamePtBr)
 
         assertEquals("Urgência Muito Alta", TaskUrgency.VERY_HIGH.titlePtBr)
@@ -39,11 +39,11 @@ class MarkdownTransferAndCalendarSyncTest {
         assertEquals("Vermelho", TaskUrgency.VERY_HIGH.colorNamePtBr)
 
         assertEquals("Urgência Alta", TaskUrgency.HIGH.titlePtBr)
-        assertEquals("Não importante e Urgente", TaskUrgency.HIGH.matrixTitlePtBr)
+        assertEquals("Importante e Não Urgente", TaskUrgency.HIGH.matrixTitlePtBr)
         assertEquals("Amarelo", TaskUrgency.HIGH.colorNamePtBr)
 
         assertEquals("Urgência Média", TaskUrgency.MEDIUM.titlePtBr)
-        assertEquals("Importante e Não Urgente", TaskUrgency.MEDIUM.matrixTitlePtBr)
+        assertEquals("Não Importante e Urgente", TaskUrgency.MEDIUM.matrixTitlePtBr)
         assertEquals("Verde", TaskUrgency.MEDIUM.colorNamePtBr)
     }
 

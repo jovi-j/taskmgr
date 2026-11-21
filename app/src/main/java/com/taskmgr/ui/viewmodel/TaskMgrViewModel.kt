@@ -441,7 +441,8 @@ class TaskMgrViewModel(private val container: AppContainer) : ViewModel() {
             val payload = HabitCompletionCalculator.buildTaskPayload(
                 task = task,
                 epochDay = _selectedEpochDay.value,
-                momentName = momentName
+                momentName = momentName,
+                isAdvanceReminder = true
             )
             container.alertDispatcher.triggerFullScreenReminder(payload)
         }

@@ -35,6 +35,7 @@ object ReminderStateMachine {
         moment: Moment? = null
     ): TaskState {
         if (task.isCompleted) return TaskState.COMPLETED
+        if (!task.hasDate) return TaskState.PENDING
         if (currentEpochDay > task.endEpochDay) return TaskState.EXPIRED_WINDOW
         if (task.snoozedUntilEpochMillis != null && task.snoozedUntilEpochMillis > nowEpochMillis) {
             return TaskState.SNOOZED

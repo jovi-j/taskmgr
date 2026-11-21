@@ -1,13 +1,13 @@
 package com.taskmgr.ui.screens
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,48 +22,71 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.taskmgr.ui.theme.IndigoOnPrimary
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import com.example.taskmgr.ui.theme.IndigoContainer
+import com.example.taskmgr.ui.theme.IndigoOnContainer
 import com.example.taskmgr.ui.theme.IndigoPrimary
+import com.example.taskmgr.ui.theme.OledBackground
 import com.example.taskmgr.ui.theme.OledBorder
 import com.example.taskmgr.ui.theme.OledSurface
 import com.example.taskmgr.ui.theme.OledSurfaceElevated
-import com.example.taskmgr.ui.theme.TextDisabled
+import com.example.taskmgr.ui.theme.TaskCompleted
 import com.example.taskmgr.ui.theme.TextPrimary
 import com.example.taskmgr.ui.theme.TextSecondary
-import com.example.taskmgr.ui.theme.UbuntuSansMonoNerdFontFamily
 import com.taskmgr.domain.model.Task
 import com.taskmgr.domain.model.TaskUrgency
+import com.taskmgr.ui.components.DatePickerModalDialog
 import com.taskmgr.ui.components.NerdIcon
 import com.taskmgr.ui.components.NerdIcons
-import com.taskmgr.ui.components.formatMinutes
+import com.taskmgr.ui.components.TimePickerModalDialog
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-private val MATRIX_DATE_FORMATTER: DateTimeFormatter =
-    DateTimeFormatter.ofPattern("dd/MM/yy", Locale.forLanguageTag("pt-BR"))
+private val ShortDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+
+fun urgencyGlyph(urgency: TaskUrgency): String = when (urgency) {
+    TaskUrgency.VERY_HIGH -> NerdIcons.Fire
+    TaskUrgency.HIGH -> NerdIcons.AlertCircle
+    TaskUrgency.MEDIUM -> NerdIcons.ClockOutline
+    TaskUrgency.LOW -> NerdIcons.Layers
+}
+
+private fun formatMinutesPtBr(minutesOfDay: Int): String {
+    val h = (minutesOfDay / 60).coerceIn(0, 23)
+    val m = (minutesOfDay % 60).coerceIn(0, 59)
+    return String.format(Locale.US, "%02d:%02d", h, m)
+}
 
 @Composable
 fun EisenhowerMatrixScreen(
@@ -71,81 +94,118 @@ fun EisenhowerMatrixScreen(
     onCreateTaskInQuadrant: (TaskUrgency) -> Unit,
     onToggleTask: (Task) -> Unit,
     onEditTask: (Task) -> Unit,
-    @Suppress("UNUSED_PARAMETER") onDeleteTask: (Long) -> Unit = {},
-    @Suppress("UNUSED_PARAMETER") onTestTaskAlarm: (Task) -> Unit = {},
-    modifier: Modifier = Modifier
+    onUpdateTask: (Task) -> Unit = {},
+    onDeleteTask: (Long) -> Unit = {},
+    onTestTaskAlarm: (Task) -> Unit = {}
 ) {
     val tasksByUrgency = remember(tasks) {
-        tasks
-            .sortedWith(
-                compareBy<Task> { it.isCompleted }
-                    .thenBy { it.startEpochDay }
-                    .thenBy { it.scheduledMinutesOfDay ?: Int.MAX_VALUE }
-                    .thenBy { it.id }
-            )
-            .groupBy { it.urgency }
+        val comparator = compareBy<Task> { it.isCompleted }
+            .thenBy { if (it.hasDate) it.startEpochDay else Long.MAX_VALUE }
+            .thenBy { it.scheduledMinutesOfDay ?: Int.MAX_VALUE }
+            .thenBy { it.id }
+        TaskUrgency.entries.associateWith { urgency ->
+            tasks.filter { it.urgency == urgency }.sortedWith(comparator)
+        }
     }
 
+    val unscheduledInboxTasks = remember(tasks) {
+        tasks.filter { !it.isCompleted && it.isUnscheduledInbox }
+            .sortedBy { it.id }
+    }
+
+    var showPlanDayDialog by remember { mutableStateOf(false) }
+
     Column(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxSize()
-            .padding(10.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+            .background(OledBackground)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // Cabeçalho compacto da Matriz
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        // Header bar with "Planejar o dia" action button
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = OledSurface,
+            border = BorderStroke(1.dp, OledBorder),
+            modifier = Modifier.fillMaxWidth()
         ) {
             Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.weight(1f)
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                NerdIcon(
-                    glyph = NerdIcons.Layers,
-                    color = IndigoPrimary,
-                    size = 20.sp
-                )
-                Column {
-                    Text(
-                        text = "Matriz de Eisenhower",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    NerdIcon(
+                        glyph = NerdIcons.Layers,
+                        color = IndigoPrimary,
+                        size = 18.sp
                     )
-                    val pendingCount = tasks.count { !it.isCompleted }
-                    Text(
-                        text = "${tasks.size} tarefa(s) • $pendingCount pendente(s)",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TextSecondary
-                    )
+                    Column {
+                        Text(
+                            text = "Matriz de Eisenhower",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                        Text(
+                            text = if (unscheduledInboxTasks.isEmpty()) {
+                                "Caixa de entrada limpa"
+                            } else {
+                                "${unscheduledInboxTasks.size} sem data/hora na Caixa de entrada"
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextSecondary
+                        )
+                    }
                 }
-            }
-            FilledTonalButton(
-                onClick = { onCreateTaskInQuadrant(TaskUrgency.LOW) },
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-            ) {
-                NerdIcon(glyph = NerdIcons.PlusCircle, size = 15.sp)
-                Spacer(modifier = Modifier.width(5.dp))
-                Text("Nova Tarefa", style = MaterialTheme.typography.labelMedium)
+
+                Surface(
+                    onClick = { showPlanDayDialog = true },
+                    shape = RoundedCornerShape(10.dp),
+                    color = IndigoContainer,
+                    border = BorderStroke(1.dp, IndigoPrimary.copy(alpha = 0.6f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        NerdIcon(
+                            glyph = NerdIcons.CalendarToday,
+                            color = IndigoPrimary,
+                            size = 14.sp
+                        )
+                        Text(
+                            text = if (unscheduledInboxTasks.isNotEmpty()) {
+                                "Planejar o dia (${unscheduledInboxTasks.size})"
+                            } else {
+                                "Planejar o dia"
+                            },
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = IndigoOnContainer
+                        )
+                    }
+                }
             }
         }
 
-        // Linha Superior da Matriz 2x2:
-        // Esquerdo Superior: Importante e Urgente (VERY_HIGH - Vermelho)
-        // Direito Superior: Importante e Não Urgente (MEDIUM - Verde)
+        // Top Row:
+        // Left: Importante e Urgente (VERY_HIGH - Vermelho)
+        // Right: Importante e Não Urgente (HIGH - Amarelo)
         Row(
             modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                .fillMaxWidth()
+                .weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            EisenhowerQuadrantCell(
-                quadrantTitle = "Importante e Urgente",
+            MatrixQuadrantCell(
                 urgency = TaskUrgency.VERY_HIGH,
                 tasks = tasksByUrgency[TaskUrgency.VERY_HIGH].orEmpty(),
                 onAddTask = { onCreateTaskInQuadrant(TaskUrgency.VERY_HIGH) },
@@ -155,30 +215,7 @@ fun EisenhowerMatrixScreen(
                     .weight(1f)
                     .fillMaxHeight()
             )
-            EisenhowerQuadrantCell(
-                quadrantTitle = "Importante e Não Urgente",
-                urgency = TaskUrgency.MEDIUM,
-                tasks = tasksByUrgency[TaskUrgency.MEDIUM].orEmpty(),
-                onAddTask = { onCreateTaskInQuadrant(TaskUrgency.MEDIUM) },
-                onToggleTask = onToggleTask,
-                onEditTask = onEditTask,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-            )
-        }
-
-        // Linha Inferior da Matriz 2x2:
-        // Esquerdo Inferior: Não importante e Urgente (HIGH - Amarelo)
-        // Direito Inferior: Não Urgente e Não importante (LOW - Azul)
-        Row(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            EisenhowerQuadrantCell(
-                quadrantTitle = "Não importante e Urgente",
+            MatrixQuadrantCell(
                 urgency = TaskUrgency.HIGH,
                 tasks = tasksByUrgency[TaskUrgency.HIGH].orEmpty(),
                 onAddTask = { onCreateTaskInQuadrant(TaskUrgency.HIGH) },
@@ -188,8 +225,28 @@ fun EisenhowerMatrixScreen(
                     .weight(1f)
                     .fillMaxHeight()
             )
-            EisenhowerQuadrantCell(
-                quadrantTitle = "Não Urgente e Não importante",
+        }
+
+        // Bottom Row:
+        // Left: Não Importante e Urgente (MEDIUM - Verde)
+        // Right: Não Importante e Não Urgente (LOW - Azul)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            MatrixQuadrantCell(
+                urgency = TaskUrgency.MEDIUM,
+                tasks = tasksByUrgency[TaskUrgency.MEDIUM].orEmpty(),
+                onAddTask = { onCreateTaskInQuadrant(TaskUrgency.MEDIUM) },
+                onToggleTask = onToggleTask,
+                onEditTask = onEditTask,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+            )
+            MatrixQuadrantCell(
                 urgency = TaskUrgency.LOW,
                 tasks = tasksByUrgency[TaskUrgency.LOW].orEmpty(),
                 onAddTask = { onCreateTaskInQuadrant(TaskUrgency.LOW) },
@@ -201,11 +258,20 @@ fun EisenhowerMatrixScreen(
             )
         }
     }
+
+    if (showPlanDayDialog) {
+        PlanDayDialog(
+            unscheduledTasks = unscheduledInboxTasks,
+            onDismiss = { showPlanDayDialog = false },
+            onDelegateTask = { updatedTask ->
+                onUpdateTask(updatedTask)
+            }
+        )
+    }
 }
 
 @Composable
-private fun EisenhowerQuadrantCell(
-    quadrantTitle: String,
+private fun MatrixQuadrantCell(
     urgency: TaskUrgency,
     tasks: List<Task>,
     onAddTask: () -> Unit,
@@ -213,112 +279,88 @@ private fun EisenhowerQuadrantCell(
     onEditTask: (Task) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val quadrantColor = Color(urgency.colorArgb.toInt())
-    val glyph = remember(urgency) { urgencyGlyph(urgency) }
+    val accentColor = Color(urgency.colorArgb.toInt())
 
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = OledSurface),
-        border = BorderStroke(1.5.dp, quadrantColor.copy(alpha = 0.6f))
+        border = BorderStroke(1.5.dp, accentColor.copy(alpha = 0.55f))
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            // Cabeçalho do Quadrante
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Quadrant Header
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(quadrantColor.copy(alpha = 0.14f))
-                    .padding(horizontal = 8.dp, vertical = 7.dp),
+                    .background(accentColor.copy(alpha = 0.14f))
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(22.dp)
-                        .clip(CircleShape)
-                        .background(quadrantColor),
-                    contentAlignment = Alignment.Center
-                ) {
-                    NerdIcon(
-                        glyph = glyph,
-                        color = Color(0xFF0B0F17),
-                        size = 12.sp
-                    )
-                }
-
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = quadrantTitle,
-                        style = MaterialTheme.typography.labelMedium,
+                        text = urgency.matrixTitlePtBr,
+                        style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
                         color = TextPrimary,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
-                        lineHeight = 14.sp
+                        lineHeight = 15.sp
                     )
                     Text(
-                        text = "${urgency.titlePtBr} (${tasks.size})",
+                        text = urgency.titlePtBr,
                         style = MaterialTheme.typography.labelSmall,
-                        color = quadrantColor,
+                        fontWeight = FontWeight.SemiBold,
+                        color = accentColor,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        fontSize = 10.sp
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
-                Surface(
+                IconButton(
                     onClick = onAddTask,
-                    shape = CircleShape,
-                    color = quadrantColor.copy(alpha = 0.22f),
-                    border = BorderStroke(1.dp, quadrantColor.copy(alpha = 0.6f)),
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(26.dp)
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        NerdIcon(
-                            glyph = NerdIcons.Plus,
-                            color = quadrantColor,
-                            size = 12.sp
-                        )
-                    }
+                    NerdIcon(
+                        glyph = NerdIcons.PlusCircle,
+                        color = accentColor,
+                        size = 16.sp
+                    )
                 }
             }
 
-            HorizontalDivider(color = quadrantColor.copy(alpha = 0.3f), thickness = 1.dp)
+            HorizontalDivider(color = accentColor.copy(alpha = 0.35f), thickness = 1.dp)
 
             if (tasks.isEmpty()) {
                 Box(
                     modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .padding(8.dp),
+                        .fillMaxSize()
+                        .clickable(onClick = onAddTask)
+                        .padding(12.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = "Sem tarefas",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TextSecondary
+                        style = MaterialTheme.typography.labelMedium,
+                        color = TextSecondary.copy(alpha = 0.6f)
                     )
                 }
             } else {
                 LazyColumn(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    contentPadding = PaddingValues(6.dp),
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 6.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     items(
                         items = tasks,
-                        key = { "q_${urgency.name}_task_${it.id}" },
-                        contentType = { "matrix_task_cell_item" }
+                        key = { task -> task.id },
+                        contentType = { "matrix_cell_task" }
                     ) { task ->
-                        MatrixQuadrantTaskItem(
+                        MatrixTaskCellItem(
                             task = task,
-                            quadrantColor = quadrantColor,
-                            onToggleCompleted = { onToggleTask(task) },
-                            onEdit = { onEditTask(task) }
+                            accentColor = accentColor,
+                            onToggle = { onToggleTask(task) },
+                            onClick = { onEditTask(task) }
                         )
                     }
                 }
@@ -328,68 +370,57 @@ private fun EisenhowerQuadrantCell(
 }
 
 @Composable
-private fun MatrixQuadrantTaskItem(
+private fun MatrixTaskCellItem(
     task: Task,
-    quadrantColor: Color,
-    onToggleCompleted: () -> Unit,
-    onEdit: () -> Unit
+    accentColor: Color,
+    onToggle: () -> Unit,
+    onClick: () -> Unit
 ) {
-    val titleColor by animateColorAsState(
-        targetValue = if (task.isCompleted) TextDisabled else TextPrimary,
-        animationSpec = tween(200),
-        label = "quadrant_task_title_color"
-    )
-
-    val dateLabel = remember(task.startEpochDay, task.endEpochDay) {
-        val startStr = LocalDate.ofEpochDay(task.startEpochDay).format(MATRIX_DATE_FORMATTER)
-        if (task.endEpochDay > task.startEpochDay) {
-            val endStr = LocalDate.ofEpochDay(task.endEpochDay).format(MATRIX_DATE_FORMATTER)
-            "$startStr..$endStr"
+    val dateLabel = remember(task.startEpochDay) {
+        if (task.hasDate) {
+            LocalDate.ofEpochDay(task.startEpochDay).format(ShortDateFormatter)
         } else {
-            startStr
+            "Sem data"
         }
     }
-
     val timeLabel = remember(task.scheduledMinutesOfDay) {
-        task.scheduledMinutesOfDay?.let { formatMinutes(it) } ?: "Dia todo"
+        task.scheduledMinutesOfDay?.let { formatMinutesPtBr(it) } ?: "Sem hora"
     }
 
     Surface(
+        onClick = onClick,
         shape = RoundedCornerShape(10.dp),
         color = OledSurfaceElevated,
-        border = BorderStroke(1.dp, OledBorder),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .clickable(onClick = onEdit)
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (task.isCompleted) OledBorder else accentColor.copy(alpha = 0.32f)
+        ),
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 5.dp),
+                .padding(horizontal = 6.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Checkbox(
                 checked = task.isCompleted,
-                onCheckedChange = { onToggleCompleted() },
+                onCheckedChange = { onToggle() },
                 colors = CheckboxDefaults.colors(
-                    checkedColor = quadrantColor,
-                    checkmarkColor = IndigoOnPrimary,
-                    uncheckedColor = TextSecondary
+                    checkedColor = TaskCompleted,
+                    uncheckedColor = accentColor
                 ),
-                modifier = Modifier
-                    .size(28.dp)
-                    .scale(0.82f)
+                modifier = Modifier.size(28.dp)
             )
 
-            Spacer(modifier = Modifier.width(3.dp))
+            Spacer(modifier = Modifier.width(4.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = task.title,
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.SemiBold,
-                    color = titleColor,
+                    color = if (task.isCompleted) TextSecondary else TextPrimary,
                     textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
@@ -398,43 +429,22 @@ private fun MatrixQuadrantTaskItem(
                 Spacer(modifier = Modifier.height(2.dp))
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        NerdIcon(
-                            glyph = NerdIcons.CalendarToday,
-                            color = TextSecondary,
-                            size = 10.sp
-                        )
+                    Text(
+                        text = "$dateLabel • $timeLabel",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 10.sp,
+                        color = TextSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (task.advanceReminders.isNotEmpty()) {
                         Text(
-                            text = dateLabel,
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontFamily = UbuntuSansMonoNerdFontFamily,
-                                fontSize = 10.sp
-                            ),
-                            color = TextSecondary,
-                            maxLines = 1
-                        )
-                    }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        NerdIcon(
-                            glyph = NerdIcons.ClockOutline,
-                            color = quadrantColor,
-                            size = 10.sp
-                        )
-                        Text(
-                            text = timeLabel,
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontFamily = UbuntuSansMonoNerdFontFamily,
-                                fontSize = 10.sp
-                            ),
-                            color = quadrantColor,
+                            text = "• 🔔${task.advanceReminders.size}",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontSize = 10.sp,
+                            color = IndigoPrimary,
                             maxLines = 1
                         )
                     }
@@ -444,9 +454,343 @@ private fun MatrixQuadrantTaskItem(
     }
 }
 
-fun urgencyGlyph(urgency: TaskUrgency): String = when (urgency) {
-    TaskUrgency.VERY_HIGH -> NerdIcons.Fire
-    TaskUrgency.HIGH -> NerdIcons.Flash
-    TaskUrgency.MEDIUM -> NerdIcons.Target
-    TaskUrgency.LOW -> NerdIcons.ClockOutline
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PlanDayDialog(
+    unscheduledTasks: List<Task>,
+    onDismiss: () -> Unit,
+    onDelegateTask: (Task) -> Unit
+) {
+    val todayEpochDay = remember { LocalDate.now().toEpochDay() }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth(0.94f)
+                .fillMaxHeight(0.86f),
+            shape = RoundedCornerShape(20.dp),
+            color = OledSurface,
+            border = BorderStroke(1.dp, OledBorder)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(IndigoContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            NerdIcon(
+                                glyph = NerdIcons.CalendarToday,
+                                color = IndigoPrimary,
+                                size = 18.sp
+                            )
+                        }
+                        Column {
+                            Text(
+                                text = "Planejar o dia",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+                            Text(
+                                text = "Limpe a Caixa de entrada (Não Importante e Não Urgente) delegando data e quadrante.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextSecondary
+                            )
+                        }
+                    }
+                    IconButton(onClick = onDismiss) {
+                        NerdIcon(glyph = NerdIcons.Close, color = TextSecondary, size = 18.sp)
+                    }
+                }
+
+                HorizontalDivider(color = OledBorder, thickness = 1.dp)
+
+                if (unscheduledTasks.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            NerdIcon(
+                                glyph = NerdIcons.CheckCircle,
+                                color = TaskCompleted,
+                                size = 36.sp
+                            )
+                            Text(
+                                text = "Caixa de entrada limpa!",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+                            Text(
+                                text = "Todas as tarefas pendentes já possuem data ou horário definido.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextSecondary
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(
+                            items = unscheduledTasks,
+                            key = { it.id }
+                        ) { task ->
+                            PlanDayTaskItemCard(
+                                task = task,
+                                todayEpochDay = todayEpochDay,
+                                onDelegate = onDelegateTask
+                            )
+                        }
+                    }
+                }
+
+                HorizontalDivider(color = OledBorder, thickness = 1.dp)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Fechar", color = IndigoPrimary, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PlanDayTaskItemCard(
+    task: Task,
+    todayEpochDay: Long,
+    onDelegate: (Task) -> Unit
+) {
+    var targetEpochDay by remember(task.id) { mutableLongStateOf(todayEpochDay) }
+    var useTime by remember(task.id) { mutableStateOf(false) }
+    var targetMinutes by remember(task.id) { mutableIntStateOf(9 * 60) }
+    var targetUrgency by remember(task.id) { mutableStateOf(TaskUrgency.HIGH) }
+    var showDatePicker by remember(task.id) { mutableStateOf(false) }
+    var showTimePicker by remember(task.id) { mutableStateOf(false) }
+
+    val formattedDate = remember(targetEpochDay) {
+        LocalDate.ofEpochDay(targetEpochDay).format(ShortDateFormatter)
+    }
+
+    Card(
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = OledSurfaceElevated),
+        border = BorderStroke(1.dp, OledBorder),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = task.title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary
+            )
+            if (!task.notes.isNullOrBlank()) {
+                Text(
+                    text = task.notes,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            // Date selection chips
+            Text(
+                text = "1. Delegar para qual data?",
+                style = MaterialTheme.typography.labelMedium,
+                color = TextSecondary
+            )
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                FilterChip(
+                    selected = targetEpochDay == todayEpochDay,
+                    onClick = { targetEpochDay = todayEpochDay },
+                    label = { Text("Hoje") }
+                )
+                FilterChip(
+                    selected = targetEpochDay == todayEpochDay + 1,
+                    onClick = { targetEpochDay = todayEpochDay + 1 },
+                    label = { Text("Amanhã") }
+                )
+                FilterChip(
+                    selected = targetEpochDay != todayEpochDay && targetEpochDay != todayEpochDay + 1,
+                    onClick = { showDatePicker = true },
+                    leadingIcon = { NerdIcon(glyph = NerdIcons.Calendar, size = 13.sp) },
+                    label = { Text("Data: $formattedDate") }
+                )
+                FilterChip(
+                    selected = useTime,
+                    onClick = {
+                        if (!useTime) {
+                            useTime = true
+                            showTimePicker = true
+                        } else {
+                            useTime = false
+                        }
+                    },
+                    leadingIcon = { NerdIcon(glyph = NerdIcons.ClockOutline, size = 13.sp) },
+                    label = {
+                        Text(
+                            if (useTime) "Horário: ${formatMinutesPtBr(targetMinutes)}"
+                            else "Definir horário (opcional)"
+                        )
+                    }
+                )
+            }
+
+            // Quadrant selection
+            Text(
+                text = "2. Delegar para qual quadrante?",
+                style = MaterialTheme.typography.labelMedium,
+                color = TextSecondary
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                TaskUrgency.entries.sortedBy { it.sortOrder }.forEach { option ->
+                    val optionColor = Color(option.colorArgb.toInt())
+                    val isSelected = targetUrgency == option
+                    Surface(
+                        onClick = { targetUrgency = option },
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (isSelected) optionColor.copy(alpha = 0.18f) else OledSurface,
+                        border = BorderStroke(
+                            width = if (isSelected) 1.5.dp else 1.dp,
+                            color = if (isSelected) optionColor else OledBorder
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 10.dp, vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(12.dp)
+                                        .clip(CircleShape)
+                                        .background(optionColor)
+                                )
+                                Text(
+                                    text = option.matrixTitlePtBr,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = TextPrimary
+                                )
+                            }
+                            Text(
+                                text = option.shortLabelPtBr,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = optionColor,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+
+            val selectedColor = Color(targetUrgency.colorArgb.toInt())
+            Button(
+                onClick = {
+                    onDelegate(
+                        task.copy(
+                            startEpochDay = targetEpochDay,
+                            endEpochDay = targetEpochDay,
+                            scheduledMinutesOfDay = if (useTime) targetMinutes else null,
+                            urgency = targetUrgency
+                        )
+                    )
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = selectedColor,
+                    contentColor = Color(0xFF0B0F17)
+                ),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                NerdIcon(
+                    glyph = NerdIcons.CheckCircle,
+                    color = Color(0xFF0B0F17),
+                    size = 16.sp
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "Agendar para $formattedDate • ${targetUrgency.shortLabelPtBr}",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+
+    if (showDatePicker) {
+        DatePickerModalDialog(
+            initialEpochDay = targetEpochDay,
+            onDismiss = { showDatePicker = false },
+            onConfirm = { pickedDay ->
+                targetEpochDay = pickedDay
+                showDatePicker = false
+            }
+        )
+    }
+
+    if (showTimePicker) {
+        TimePickerModalDialog(
+            initialMinutesOfDay = targetMinutes,
+            title = "Horário da Tarefa",
+            onDismiss = { showTimePicker = false },
+            onConfirm = { pickedMinutes ->
+                targetMinutes = pickedMinutes
+                useTime = true
+                showTimePicker = false
+            }
+        )
+    }
 }

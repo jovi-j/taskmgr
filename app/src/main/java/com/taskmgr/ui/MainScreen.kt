@@ -549,6 +549,7 @@ fun MainScreen(viewModel: TaskMgrViewModel) {
                                     onEditTask = { task ->
                                         activeEditor = ActiveEditor.TaskEditor(task)
                                     },
+                                    onUpdateTask = viewModel::upsertTask,
                                     onDeleteTask = viewModel::deleteTask,
                                     onTestTaskAlarm = viewModel::triggerTestReminder
                                 )
