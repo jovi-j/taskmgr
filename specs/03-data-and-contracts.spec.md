@@ -1,7 +1,7 @@
 # specs/03-data-and-contracts.spec.md
-version: 1.2.0
+version: 1.4.0
 status: implemented
-system: taskmgr (Android v0.1.0)
+system: taskmgr (Android v0.3.0)
 
 ## 1. Modelos de Domínio (`com.taskmgr.domain.model`)
 
@@ -57,21 +57,37 @@ data class Moment(
     val isEnabled: Boolean = true
 )
 
+data class TaskAdvanceReminder(
+    val daysBefore: Int = 0,
+    val hoursBefore: Int = 0,
+    val minutesBefore: Int = 0,
+    val repeatIntervalMinutes: Int? = null
+)
+
 data class Task(
     val id: Long = 0L,
     val title: String,
     val notes: String? = null,
-    val startEpochDay: Long,
-    val endEpochDay: Long,
+    val startEpochDay: Long = UNSCHEDULED_EPOCH_DAY,
+    val endEpochDay: Long = UNSCHEDULED_EPOCH_DAY,
+    val activeDaysMask: Int = 0b1111111,
+    val hasEndDate: Boolean = false,
     val scheduledMinutesOfDay: Int? = null,
     val momentId: Long? = null,
     val repeatIntervalMinutes: Int? = null,
     val aggressiveFullScreen: Boolean = true,
     val vibrationEnabled: Boolean = true,
     val isCompleted: Boolean = false,
+    val completedAtEpochMillis: Long? = null,
     val snoozedUntilEpochMillis: Long? = null,
-    val urgency: TaskUrgency = TaskUrgency.LOW
-)
+    val urgency: TaskUrgency = TaskUrgency.LOW,
+    val advanceReminders: List<TaskAdvanceReminder> = emptyList()
+) {
+    companion object {
+        const val UNSCHEDULED_EPOCH_DAY: Long = -1L
+        const val OPEN_ENDED_EPOCH_DAY: Long = 365_242L
+    }
+}
 
 data class HabitGroup(
     val id: Long = 0L,
@@ -119,7 +135,9 @@ data class FullScreenReminderPayload(
     val momentName: String?,
     val progressText: String?,
     val incrementButtonLabel: String?,
-    val vibrationEnabled: Boolean
+    val vibrationEnabled: Boolean,
+    val showSnoozeOptions: Boolean = true,
+    val acknowledgeOnly: Boolean = false
 )
 
 enum class ReminderItemType {
@@ -128,8 +146,13 @@ enum class ReminderItemType {
 }
 ```
 
-## 2. Banco de Dados Room (`TaskMgrDatabase` v4)
-- **Versão atual:** `4` (`MIGRATION_1_2` adiciona `habit_groups` e colunas `groupId`/`iconGlyph` em `habits`; `MIGRATION_2_3` adiciona `calendar_sync_events`; `MIGRATION_3_4` adiciona coluna `urgency TEXT NOT NULL DEFAULT 'LOW'` em `tasks`).
+## 2. Banco de Dados Room (`TaskMgrDatabase` v6)
+- **Versão atual:** `6`
+    - `MIGRATION_1_2`: adiciona `habit_groups` e colunas `groupId`/`iconGlyph` em `habits`.
+    - `MIGRATION_2_3`: adiciona `calendar_sync_events`.
+    - `MIGRATION_3_4`: adiciona coluna `urgency TEXT NOT NULL DEFAULT 'LOW'` em `tasks`.
+    - `MIGRATION_4_5`: adiciona coluna `advanceRemindersSpec TEXT` em `tasks`.
+    - `MIGRATION_5_6`: adiciona colunas `activeDaysMask INTEGER NOT NULL DEFAULT 127` e `hasEndDate INTEGER NOT NULL DEFAULT 0` em `tasks` e semeia os 4 momentos padrões (`Manhã`, `Tarde`, `Noite`, `Todo o dia`) via `seedDefaultMomentsSql(db)` (também executado no `RoomDatabase.Callback.onCreate`).
 - **Tabelas:**
     - `moments` (`MomentEntity`)
     - `habit_groups` (`HabitGroupEntity`)

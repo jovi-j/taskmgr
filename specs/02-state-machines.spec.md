@@ -1,20 +1,23 @@
 # specs/02-state-machines.spec.md
-version: 1.1.2
+version: 1.4.0
 status: implemented
-system: taskmgr (Android v0.0.3)
+system: taskmgr (Android v0.3.0)
 
 ## 1. Máquina de Estados — `Task` (por ciclo/instância)
 Estados:
-- `PENDING` (inicial)
+- `UNSCHEDULED_INBOX` (`startEpochDay == -1L`, sem data definida)
+- `PENDING` (agendada para `startEpochDay..endEpochDay` nos dias de `activeDaysMask`, ou sem data fim com `hasEndDate == false`)
 - `SNOOZED`
-- `COMPLETED` (terminal para o ciclo atual)
-- `EXPIRED_WINDOW` (quando janela/prazo encerra sem conclusão)
+- `COMPLETED` (terminal para a tarefa; registra `completedAtEpochMillis`)
+- `EXPIRED_WINDOW` (quando `hasEndDate == true` e a janela/prazo encerra sem conclusão)
 
 Transições (`ReminderStateMachine`):
-- `PENDING` --[onAlarmTriggered]--> `PENDING` (exibe `FullScreenReminderActivity` / notificação; reagenda próximo `repeatIntervalMinutes` se `isCompleted == false`)
-- `PENDING` --[onComplete]--> `COMPLETED` (cancela alarmes pendentes da tarefa; remove notificação ativa; dispara auto-sync com calendário se habilitado)
+- `UNSCHEDULED_INBOX` --[onPlanDayAssign(todayEpochDay)]--> `PENDING` (delega a tarefa para o dia de hoje com urgência escolhida)
+- `PENDING` --[onAdvanceAlarmTriggered]--> `PENDING` (exibe `FullScreenReminderActivity` em modo `acknowledgeOnly = true` / `showSnoozeOptions = false`; agenda próximo lembrete antecipado ou o horário principal)
+- `PENDING` --[onAlarmTriggered]--> `PENDING` (exibe `FullScreenReminderActivity` / notificação; reagenda próximo `repeatIntervalMinutes` ou próximo dia ativo em `activeDaysMask` se `isCompleted == false`)
+- `PENDING` --[onComplete (App / Notificação / Widget 4x2)]--> `COMPLETED` (cancela alarmes pendentes da tarefa; remove notificação ativa; atualiza widget Glance; dispara auto-sync com calendário se habilitado)
 - `PENDING` --[onSnooze(duration != UNTIL_TOMORROW)]--> `SNOOZED` (agenda alarme exato em `now + duration`; remove notificação ativa)
-- `PENDING` --[onSnooze(UNTIL_TOMORROW)]--> `SNOOZED` (agenda para próximo dia válido; suprime disparos restantes no dia atual)
+- `PENDING` --[onSnooze(UNTIL_TOMORROW)]--> `SNOOZED` (agenda para próximo dia válido em `activeDaysMask`; suprime disparos restantes no dia atual)
 - `SNOOZED` --[onSnoozeTimerFired]--> `PENDING` (dispara alerta novamente)
 - `SNOOZED` --[onComplete]--> `COMPLETED` (cancela timer de soneca)
 
@@ -26,9 +29,9 @@ Estados:
 - `COMPLETED` (`accumulatedAmount >= targetAmount`, `isCompleted == true`)
 
 Transições (`ReminderStateMachine`):
-- `IN_PROGRESS` --[onIncrement(delta = habit.incrementAmount)]-->
-    - se novo `accumulatedAmount >= targetAmount`: `COMPLETED` (cancela alarmes do dia para o hábito)
-    - senão: `IN_PROGRESS` (persiste novo `accumulatedAmount`)
+- `IN_PROGRESS` --[onIncrement(delta = habit.incrementAmount) via App / Alarme / Widget 2x2]-->
+    - se novo `accumulatedAmount >= targetAmount`: `COMPLETED` (cancela alarmes do dia para o hábito e atualiza widget Glance)
+    - senão: `IN_PROGRESS` (persiste novo `accumulatedAmount` e atualiza widget Glance)
 - `IN_PROGRESS` --[onSnooze(MINUTES_5 | MINUTES_10 | MINUTES_30 | HOURS_1 | HOURS_3)]--> `SNOOZED_SHORT` (define `snoozedUntilEpochMillis`; agenda alarme exato)
 - `IN_PROGRESS` --[onSnooze(UNTIL_TOMORROW)]--> `DISMISSED_FOR_DAY` (define `dismissedForDay = true`; cancela alarmes restantes do dia; agenda próximo dia ativo)
 - `SNOOZED_SHORT` --[onSnoozeTimerFired]--> `IN_PROGRESS` (limpa `snoozedUntilEpochMillis`; dispara alerta se ainda não concluído)
@@ -40,25 +43,25 @@ Transições (`ReminderStateMachine`):
 Abas da barra inferior (`MainTab`):
 1. `TODAY` ("Hoje")
 2. `CALENDAR` ("Calendário")
-3. `GROUPS` ("Grupos")
-4. `MOMENTS` ("Momentos")
-5. `SETTINGS` ("Config")
+3. `MATRIX` ("Matriz" — Matriz de Eisenhower 2x2)
+4. `GROUPS` ("Grupos")
+5. `MOMENTS` ("Momentos")
 
-Editores de tela inteira (`ActiveEditor`):
-- `null` (exibe `Scaffold` principal com `NavigationBar` e `AnimatedContent` entre as 5 abas)
-- `ActiveEditor.TaskEditor(task: Task?)` (abre `TaskEditorScreen` em tela cheia com animação vertical/fade)
-- `ActiveEditor.HabitEditor(habit: Habit?, defaultGroupId: Long?)` (abre `HabitEditorScreen` em tela cheia, pré-selecionando grupo/ícone quando iniciado a partir da aba `GROUPS`)
-
-Subtelas de Configurações (`SettingsSection` em `MomentsAndSettingsScreen.kt`):
+Menu de Configurações (`TopAppBar` -> `showSettingsScreen = true`):
 - `null` (menu principal com 4 cartões de navegação)
 - `EXPORT_SYNC` ("Exportação, Sincronização e Importação")
 - `PERMISSIONS` ("Permissões")
 - `VIBRATION` ("Vibração")
-- `ABOUT` ("Sobre" — Versão `0.0.3`, Criador `Jovi` `https://github.com/jovi-j/`)
+- `ABOUT` ("Sobre" — Versão dinâmica via `PackageInfo.versionName`, Criador `Jovi` `https://github.com/jovi-j/`)
+
+Editores de tela inteira (`ActiveEditor` em `MainScreen.kt` e modais em `ItemEditorScreens.kt`):
+- `null` (exibe `Scaffold` principal com `NavigationBar` e `AnimatedContent` entre as 5 abas)
+- `ActiveEditor.TaskEditor(task: Task?, defaultUrgency: TaskUrgency?)` (abre `TaskEditorScreen` com cartão *seamless* Título/Detalhes, detector `SmartTitleParser` e barra horizontal de ícones que abrem `TaskEditorModalSection`)
+- `ActiveEditor.HabitEditor(habit: Habit?, defaultGroupId: Long?)` (abre `HabitEditorScreen` com cartão *seamless* Título/Detalhes, detector `SmartTitleParser`, pré-seleção do momento `"Todo o dia"` e barra horizontal de ícones que abrem `HabitEditorModalSection`)
 
 ## 4. Máquina de Estados — Sincronização de Calendário (`AndroidCalendarSyncManager`)
 - **Precondição:** `READ_CALENDAR` e `WRITE_CALENDAR` concedidas + calendário gravável selecionado (`CALENDAR_ACCESS_LEVEL >= CAL_ACCESS_CONTRIBUTOR`).
 - **Ciclo `syncTasksNow()`:**
-    1. **Limpeza de órfãos:** Para cada registro em `calendar_sync_events` (`itemType = "TASK"`) cujo `itemId` não existe mais em `tasks`, remove o evento do `CalendarContract.Events` e apaga o vínculo.
+    1. **Limpeza de órfãos:** Para cada registro em `calendar_sync_events` (`itemType = "TASK"`) cujo `itemId` não existe mais em `tasks` (ou deixou de ter data), remove o evento do `CalendarContract.Events` e apaga o vínculo.
     2. **Pull Bidirecional:** Se o hash local da `Task` (`contentHash`) é igual a `lastSyncedHash`, lê o evento remoto. Se o evento remoto foi editado no Google/Android Agenda (título, descrição, data ou horário), atualiza a `Task` no Room e recalcula `lastSyncedHash`.
-    3. **Push Local:** Para tarefas novas (ou cujo evento remoto foi apagado/trocou de calendário), insere em `CalendarContract.Events` e salva `CalendarSyncEventEntity`. Para tarefas cujo `contentHash != lastSyncedHash`, atualiza o evento remoto existente.
+    3. **Push Local:** Para tarefas novas com data definida (ou cujo evento remoto foi apagado/trocou de calendário), insere em `CalendarContract.Events` e salva `CalendarSyncEventEntity`. Para tarefas cujo `contentHash != lastSyncedHash`, atualiza o evento remoto existente.
