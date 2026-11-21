@@ -40,15 +40,13 @@ jobs:
             ## taskmgr ${{ github.ref_name }}
 
             ### Destaques desta versão
+            - **Botão Central Destacado "Hoje" na Barra Inferior (`MainScreen`):**
+              - A aba **Hoje** agora fica posicionada no centro da barra inferior (`Calendário`, `Matriz`, `Hoje`, `Grupos`, `Momentos`), dentro de um botão circular com cores invertidas e ícone de sol (`nf-weather-day_sunny`).
             - **Widget de Hábito com Suporte a 2 Linhas (`HabitGlanceWidget`):**
-              - O título do hábito no widget da tela inicial agora exibe até 2 linhas completas, truncando com reticências (`...`) apenas quando o texto ultrapassa esse limite.
+              - O título do hábito no widget da tela inicial exibe até 2 linhas completas, truncando com reticências (`...`) quando o texto ultrapassa esse limite.
             - **Detector de Texto Inteligente em Títulos (Tarefas e Hábitos):**
               - Reconhecimento automático (case-insensitive e sem acentuação) de data de início (`23/11/2026`, `amanhã`, `depois de amanhã`), data fim (`até 23/12/2026`), horário (`às 15:00`), frequência semanal (`toda segunda e terça`), frequência de hábito (`2x ao dia`, `250 ml de 2500 ml ao dia`), período (`pela manhã`, `pela tarde`, `pela noite`), urgência (`urgencia muito alta`) e grupo (`grupo casa`, `grupo saúde`).
               - Trechos reconhecidos ficam destacados em azul com fundo escuro; pressionar **Backspace/Delete** logo após o trecho mantém o texto literal no título e reverte a alteração automática.
-            - **4 Momentos Padrões & Frequência/Data Fim em Tarefas:**
-              - Momentos padrões configurados automaticamente: **Manhã** (06:00–12:00), **Tarde** (12:00–18:00), **Noite** (18:00–22:00) e **Todo o dia** (06:00–22:00), todos repetindo a cada 1h.
-              - Suporte a repetição por dias da semana e data fim opcional em tarefas.
-            - **Editores Enxutos por Modais & Widgets de Tela Inicial (Hábito 2x2 e Calendário de Tarefas 4x2):**
-              - Campos integrados e *seamless* de **Título** e **Detalhes** com barra horizontal de ícones de seção e widgets interativos Jetpack Glance.
+            - **4 Momentos Padrões, Frequência/Data Fim em Tarefas, Editores por Modais & Widgets Glance (2x2 e 4x2).**
           files: |
             taskmgr-${{ github.ref_name }}.apk

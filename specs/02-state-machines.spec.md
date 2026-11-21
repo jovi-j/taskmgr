@@ -1,7 +1,7 @@
 # specs/02-state-machines.spec.md
 version: 1.4.0
 status: implemented
-system: taskmgr (Android v0.3.1)
+system: taskmgr (Android v0.3.2)
 
 ## 1. Máquina de Estados — `Task` (por ciclo/instância)
 Estados:
@@ -41,9 +41,9 @@ Transições (`ReminderStateMachine`):
 
 ## 3. Máquina de Estados — Navegação Principal & Editores Full-Screen (`MainScreen`)
 Abas da barra inferior (`MainTab`):
-1. `TODAY` ("Hoje")
-2. `CALENDAR` ("Calendário")
-3. `MATRIX` ("Matriz" — Matriz de Eisenhower 2x2)
+1. `CALENDAR` ("Calendário")
+2. `MATRIX` ("Matriz" — Matriz de Eisenhower 2x2)
+3. `TODAY` ("Hoje" — Botão circular central com cores invertidas e ícone `nf-weather-day_sunny`)
 4. `GROUPS` ("Grupos")
 5. `MOMENTS` ("Momentos")
 

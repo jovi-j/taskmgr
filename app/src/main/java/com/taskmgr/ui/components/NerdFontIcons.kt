@@ -277,6 +277,7 @@ object NerdIcons {
     val Watch = nerdGlyph(0xF058B)
     val Water = nerdGlyph(0xF058C)
     val WateringCan = nerdGlyph(0xF1481)
+    val WeatherDaySunny = nerdGlyph(0xE30D)
     val WeatherPartlyCloudy = nerdGlyph(0xF0595)
     val WeatherRain = nerdGlyph(0xF0596)
     val WeatherSnow = nerdGlyph(0xF0598)

@@ -2,7 +2,7 @@
 
 Aplicativo Android nativo para gerenciamento de **Tarefas**, **Hábitos com unidades customizadas**, **Grupos de Hábitos**, **Momentos (janelas do dia)**, **Widgets Interativos (Glance)** e **Alarmes em Tela Cheia**, construído com **Kotlin**, **Jetpack Compose (Material 3 OLED Dark)** e **Room**.
 
-- **Versão:** `0.3.1` (`com.jovij.taskmgr`)
+- **Versão:** `0.3.2` (`com.jovij.taskmgr`)
 - **Criador:** [Jovi](https://github.com/jovi-j/)
 
 ---

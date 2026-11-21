@@ -1,7 +1,7 @@
 # specs/04-acceptance-and-testing.spec.md
 version: 1.4.0
 status: implemented
-system: taskmgr (Android v0.3.1)
+system: taskmgr (Android v0.3.2)
 
 ## 1. Cenários de Aceite (Given / When / Then)
 
