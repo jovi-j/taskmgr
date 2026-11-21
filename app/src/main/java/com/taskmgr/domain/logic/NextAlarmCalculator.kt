@@ -1,0 +1,173 @@
+package com.taskmgr.domain.logic
+
+import com.taskmgr.domain.model.Habit
+import com.taskmgr.domain.model.HabitLog
+import com.taskmgr.domain.model.Moment
+import com.taskmgr.domain.model.Task
+import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.ZoneId
+import java.time.ZonedDateTime
+
+data class ScheduledAlarmSpec(
+    val triggerAtEpochMillis: Long,
+    val targetEpochDay: Long
+)
+
+object NextAlarmCalculator {
+
+    fun calculateNextForTask(
+        task: Task,
+        moment: Moment?,
+        nowEpochMillis: Long,
+        zoneId: ZoneId
+    ): ScheduledAlarmSpec? {
+        // INV-01: Completed tasks never trigger alarms
+        if (task.isCompleted) return null
+
+        val snoozeMillis = task.snoozedUntilEpochMillis
+        if (snoozeMillis != null && snoozeMillis > nowEpochMillis) {
+            val targetDay = Instant.ofEpochMilli(snoozeMillis).atZone(zoneId).toLocalDate().toEpochDay()
+            if (targetDay <= task.endEpochDay) {
+                return ScheduledAlarmSpec(snoozeMillis, targetDay)
+            }
+            return null
+        }
+
+        val todayEpochDay = Instant.ofEpochMilli(nowEpochMillis).atZone(zoneId).toLocalDate().toEpochDay()
+        val firstDay = maxOf(todayEpochDay, task.startEpochDay)
+        if (firstDay > task.endEpochDay) return null
+
+        val candidates = mutableListOf<Long>()
+
+        val scheduledMin = task.scheduledMinutesOfDay
+        if (scheduledMin != null && scheduledMin in 0 until MomentWindowEvaluator.MINUTES_IN_DAY) {
+            for (day in firstDay..task.endEpochDay) {
+                val baseZdt = toZonedDateTime(day, scheduledMin, zoneId)
+                val baseMillis = baseZdt.toInstant().toEpochMilli()
+                if (baseMillis > nowEpochMillis) {
+                    candidates.add(baseMillis)
+                }
+                val repeatMin = task.repeatIntervalMinutes
+                if (repeatMin != null && repeatMin > 0) {
+                    val endOfDayMillis = toZonedDateTime(day, 23 * 60 + 59, zoneId).toInstant().toEpochMilli()
+                    var nextRepeat = baseMillis + repeatMin * 60_000L
+                    while (nextRepeat <= endOfDayMillis) {
+                        if (nextRepeat > nowEpochMillis) {
+                            candidates.add(nextRepeat)
+                            break
+                        }
+                        nextRepeat += repeatMin * 60_000L
+                    }
+                }
+            }
+        }
+
+        if (moment != null && moment.isEnabled) {
+            val momentNext = MomentWindowEvaluator.nextTriggerAfter(
+                moment = moment,
+                nowEpochMillis = nowEpochMillis,
+                zoneId = zoneId,
+                minStartEpochDay = task.startEpochDay,
+                maxEndEpochDay = task.endEpochDay,
+                overrideIntervalMinutes = if (scheduledMin == null) task.repeatIntervalMinutes else null
+            )
+            if (momentNext != null) {
+                candidates.add(momentNext)
+            }
+        }
+
+        val earliest = candidates.minOrNull() ?: return null
+        val earliestDay = Instant.ofEpochMilli(earliest).atZone(zoneId).toLocalDate().toEpochDay()
+        return ScheduledAlarmSpec(earliest, earliestDay)
+    }
+
+    fun calculateNextForHabit(
+        habit: Habit,
+        logForCurrentDay: HabitLog?,
+        currentEpochDay: Long,
+        moment: Moment?,
+        nowEpochMillis: Long,
+        zoneId: ZoneId
+    ): ScheduledAlarmSpec? {
+        if (!habit.isActive) return null
+        if ((habit.activeDaysMask and DaysOfWeekMask.ALL_DAYS) == 0) return null
+
+        val todayEpochDay = Instant.ofEpochMilli(nowEpochMillis).atZone(zoneId).toLocalDate().toEpochDay()
+        val effectiveCurrentDay = maxOf(currentEpochDay, todayEpochDay)
+
+        // INV-01 & INV-02: If completed or dismissedForDay on effectiveCurrentDay, skip effectiveCurrentDay
+        val skipCurrentDay = logForCurrentDay != null &&
+            logForCurrentDay.epochDay == effectiveCurrentDay &&
+            (logForCurrentDay.isCompleted || logForCurrentDay.dismissedForDay)
+
+        // Short snooze on current day (only if not completed and not dismissedForDay)
+        if (!skipCurrentDay && logForCurrentDay != null && logForCurrentDay.epochDay == effectiveCurrentDay) {
+            val snoozeUntil = logForCurrentDay.snoozedUntilEpochMillis
+            if (snoozeUntil != null && snoozeUntil > nowEpochMillis) {
+                val targetDay = Instant.ofEpochMilli(snoozeUntil).atZone(zoneId).toLocalDate().toEpochDay()
+                return ScheduledAlarmSpec(snoozeUntil, targetDay)
+            }
+        }
+
+        val minSearchDay = maxOf(
+            habit.startEpochDay,
+            if (skipCurrentDay) effectiveCurrentDay + 1 else effectiveCurrentDay
+        )
+
+        val candidates = mutableListOf<Long>()
+
+        val nextActiveDay = DaysOfWeekMask.nextMatchingEpochDay(habit.activeDaysMask, minSearchDay, maxLookaheadDays = 14)
+        val scheduledMin = habit.scheduledMinutesOfDay
+        if (nextActiveDay != null && scheduledMin != null && scheduledMin in 0 until MomentWindowEvaluator.MINUTES_IN_DAY) {
+            var checkDay: Long? = nextActiveDay
+            var attempts = 0
+            while (checkDay != null && attempts < 2) {
+                val baseMillis = toZonedDateTime(checkDay, scheduledMin, zoneId).toInstant().toEpochMilli()
+                if (baseMillis > nowEpochMillis) {
+                    candidates.add(baseMillis)
+                } else if (habit.repeatIntervalMinutes != null && habit.repeatIntervalMinutes > 0) {
+                    val endOfDayMillis = toZonedDateTime(checkDay, 23 * 60 + 59, zoneId).toInstant().toEpochMilli()
+                    var nextRepeat = baseMillis + habit.repeatIntervalMinutes * 60_000L
+                    while (nextRepeat <= endOfDayMillis) {
+                        if (nextRepeat > nowEpochMillis) {
+                            candidates.add(nextRepeat)
+                            break
+                        }
+                        nextRepeat += habit.repeatIntervalMinutes * 60_000L
+                    }
+                }
+                checkDay = DaysOfWeekMask.nextMatchingEpochDay(habit.activeDaysMask, checkDay + 1, maxLookaheadDays = 14)
+                attempts++
+            }
+        }
+
+        if (moment != null && moment.isEnabled) {
+            val momentNext = MomentWindowEvaluator.nextTriggerAfter(
+                moment = moment,
+                nowEpochMillis = nowEpochMillis,
+                zoneId = zoneId,
+                allowedEpochDaysMask = habit.activeDaysMask,
+                minStartEpochDay = minSearchDay,
+                overrideIntervalMinutes = if (scheduledMin == null) habit.repeatIntervalMinutes else null
+            )
+            if (momentNext != null) {
+                candidates.add(momentNext)
+            }
+        }
+
+        val earliest = candidates.minOrNull() ?: return null
+        val earliestDay = Instant.ofEpochMilli(earliest).atZone(zoneId).toLocalDate().toEpochDay()
+        return ScheduledAlarmSpec(earliest, earliestDay)
+    }
+
+    private fun toZonedDateTime(epochDay: Long, minutesOfDay: Int, zoneId: ZoneId): ZonedDateTime {
+        val clampedMin = minutesOfDay.coerceIn(0, MomentWindowEvaluator.MINUTES_IN_DAY - 1)
+        return ZonedDateTime.of(
+            LocalDate.ofEpochDay(epochDay),
+            LocalTime.of(clampedMin / 60, clampedMin % 60),
+            zoneId
+        )
+    }
+}

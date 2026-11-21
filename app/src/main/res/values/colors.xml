@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="oled_background">#FF000000</color>
+    <color name="oled_surface_1">#FF0E1117</color>
+    <color name="oled_surface_2">#FF161B26</color>
+    <color name="oled_border">#FF1F2937</color>
+    <color name="oled_primary">#FF818CF8</color>
+    <color name="oled_primary_container">#FF1E1B4B</color>
+    <color name="oled_text_primary">#FFF8FAFC</color>
+    <color name="oled_text_secondary">#FF94A3B8</color>
+    <color name="oled_text_disabled">#FF475569</color>
+</resources>
