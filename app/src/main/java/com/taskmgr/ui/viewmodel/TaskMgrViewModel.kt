@@ -222,7 +222,7 @@ class TaskMgrViewModel(private val container: AppContainer) : ViewModel() {
 
             val summaries = buildMap {
                 for (day in startDay..endDay) {
-                    val dayTasks = tasksInRange.filter { day in it.startEpochDay..it.endEpochDay }
+                    val dayTasks = tasksInRange.filter { it.isActiveOnDay(day) }
                     val dayHabits = habits.filter {
                         it.isActive &&
                             it.startEpochDay <= day &&
@@ -311,6 +311,10 @@ class TaskMgrViewModel(private val container: AppContainer) : ViewModel() {
 
     fun selectDay(epochDay: Long) {
         _selectedEpochDay.value = epochDay
+    }
+
+    suspend fun getTaskById(taskId: Long): Task? = withContext(Dispatchers.IO) {
+        container.taskRepository.getById(taskId)
     }
 
     fun selectMonth(month: YearMonth) {

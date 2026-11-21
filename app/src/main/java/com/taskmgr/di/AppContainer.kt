@@ -10,6 +10,8 @@ import com.taskmgr.data.sync.AndroidCalendarSyncManager
 import com.taskmgr.scheduler.FullScreenAlertDispatcherImpl
 import com.taskmgr.scheduler.ReminderSchedulerImpl
 import com.taskmgr.scheduler.VibrationController
+import com.taskmgr.widget.CalendarWidgetUpdater
+import com.taskmgr.widget.HabitWidgetUpdater
 
 class AppContainer(context: Context) {
     private val appContext = context.applicationContext
@@ -45,7 +47,8 @@ class AppContainer(context: Context) {
 
     val habitGroupRepository: HabitGroupRepositoryImpl by lazy {
         HabitGroupRepositoryImpl(
-            habitGroupDao = database.habitGroupDao()
+            habitGroupDao = database.habitGroupDao(),
+            onHabitGroupsChanged = { HabitWidgetUpdater.requestUpdateAll(appContext) }
         )
     }
 
@@ -54,7 +57,8 @@ class AppContainer(context: Context) {
             taskDao = database.taskDao(),
             momentDao = database.momentDao(),
             schedulerProvider = { reminderScheduler },
-            alertDispatcherProvider = { alertDispatcher }
+            alertDispatcherProvider = { alertDispatcher },
+            onTasksChanged = { CalendarWidgetUpdater.requestUpdateAll(appContext) }
         )
     }
 
@@ -63,7 +67,8 @@ class AppContainer(context: Context) {
             habitDao = database.habitDao(),
             habitLogDao = database.habitLogDao(),
             schedulerProvider = { reminderScheduler },
-            alertDispatcherProvider = { alertDispatcher }
+            alertDispatcherProvider = { alertDispatcher },
+            onHabitsChanged = { HabitWidgetUpdater.requestUpdateAll(appContext) }
         )
     }
 

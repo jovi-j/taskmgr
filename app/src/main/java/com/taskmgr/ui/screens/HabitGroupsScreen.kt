@@ -296,7 +296,7 @@ private fun UngroupedHabitsSectionCard(
             ) {
                 HabitBadgeIcon(
                     iconGlyph = NerdIcons.Fire,
-                    groupColorArgb = 0xFF818CF8L,
+                    groupColorArgb = 0xFF536E8FL,
                     size = 42.dp,
                     iconSize = 20.sp
                 )
@@ -321,7 +321,7 @@ private fun UngroupedHabitsSectionCard(
                 habits.forEach { habitWithLog ->
                     GroupHabitRow(
                         habitWithLog = habitWithLog,
-                        groupColorArgb = 0xFF818CF8L,
+                        groupColorArgb = 0xFF536E8FL,
                         defaultIconGlyph = NerdIcons.Fire,
                         onEdit = { onEditHabit(habitWithLog.habit) },
                         onDelete = { onDeleteHabit(habitWithLog.habit.id) }

@@ -30,6 +30,9 @@ interface HabitGroupDao {
     @Query("SELECT * FROM habit_groups ORDER BY name ASC, id ASC")
     fun observeAll(): Flow<List<HabitGroupEntity>>
 
+    @Query("SELECT * FROM habit_groups ORDER BY name ASC, id ASC")
+    suspend fun getAll(): List<HabitGroupEntity>
+
     @Query("SELECT * FROM habit_groups WHERE id = :groupId")
     suspend fun getById(groupId: Long): HabitGroupEntity?
 
@@ -101,6 +104,9 @@ interface HabitDao {
     @Query("SELECT * FROM habits ORDER BY id ASC")
     fun observeAll(): Flow<List<HabitEntity>>
 
+    @Query("SELECT * FROM habits ORDER BY id ASC")
+    suspend fun getAll(): List<HabitEntity>
+
     @Query("SELECT * FROM habits WHERE isActive = 1")
     suspend fun getAllActive(): List<HabitEntity>
 
@@ -133,6 +139,9 @@ interface HabitLogDao {
 
     @Query("SELECT * FROM habit_logs WHERE habitId = :habitId AND epochDay = :epochDay")
     suspend fun getLog(habitId: Long, epochDay: Long): HabitLogEntity?
+
+    @Query("SELECT * FROM habit_logs WHERE habitId = :habitId")
+    suspend fun getLogsForHabit(habitId: Long): List<HabitLogEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: HabitLogEntity)

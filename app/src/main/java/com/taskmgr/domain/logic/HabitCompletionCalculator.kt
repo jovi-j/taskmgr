@@ -136,6 +136,93 @@ object HabitCompletionCalculator {
         )
     }
 
+    fun remainingAmount(habit: Habit, accumulatedAmount: Double): Double {
+        return (habit.targetAmount - accumulatedAmount).coerceAtLeast(0.0)
+    }
+
+    fun progressFraction(habit: Habit, accumulatedAmount: Double): Float {
+        if (habit.targetAmount <= 0.0) return 0f
+        return when (habit.completionType) {
+            CompletionType.BOOLEAN -> if (isCompleted(accumulatedAmount, habit.targetAmount)) 1f else 0f
+            CompletionType.COUNT_PER_DAY, CompletionType.CUSTOM_UNIT -> {
+                if (isCompleted(accumulatedAmount, habit.targetAmount)) {
+                    1f
+                } else {
+                    (accumulatedAmount / habit.targetAmount).toFloat().coerceIn(0f, 1f)
+                }
+            }
+        }
+    }
+
+    fun formatRemainingText(habit: Habit, accumulatedAmount: Double): String {
+        if (isCompleted(accumulatedAmount, habit.targetAmount)) {
+            return "Concluído!"
+        }
+        return when (habit.completionType) {
+            CompletionType.BOOLEAN -> "Falta concluir"
+            CompletionType.COUNT_PER_DAY -> {
+                val remaining = remainingAmount(habit, accumulatedAmount)
+                val remStr = formatCompactDecimal(remaining)
+                val isOne = isApproximatelyOne(remaining)
+                val unit = if (isOne) {
+                    val incLabel = habit.incrementUnitLabel.trim()
+                    when {
+                        incLabel.isNotEmpty() && !incLabel.startsWith("+") && incLabel.none { it.isDigit() } -> incLabel
+                        habit.targetUnitLabel.equals("vezes", ignoreCase = true) -> "vez"
+                        else -> habit.targetUnitLabel.ifBlank { "vez" }
+                    }
+                } else {
+                    habit.targetUnitLabel.ifBlank { "vezes" }
+                }
+                val verb = if (isOne) "Falta" else "Faltam"
+                "$verb $remStr $unit"
+            }
+            CompletionType.CUSTOM_UNIT -> {
+                val remaining = remainingAmount(habit, accumulatedAmount)
+                val remStr = formatCompactDecimal(remaining)
+                val unitSuffix = extractUnitSuffix(habit.targetUnitLabel, habit.incrementUnitLabel)
+                val verb = if (isApproximatelyOne(remaining)) "Falta" else "Faltam"
+                if (unitSuffix.isNotEmpty()) "$verb $remStr $unitSuffix" else "$verb $remStr"
+            }
+        }
+    }
+
+    fun formatWidgetProgressText(habit: Habit, accumulatedAmount: Double): String {
+        return when (habit.completionType) {
+            CompletionType.BOOLEAN -> {
+                val done = if (isCompleted(accumulatedAmount, habit.targetAmount)) 1 else 0
+                "$done/1"
+            }
+            CompletionType.COUNT_PER_DAY -> {
+                val current = formatCompactDecimal(clampAmount(accumulatedAmount))
+                val target = formatCompactDecimal(habit.targetAmount)
+                "$current/$target"
+            }
+            CompletionType.CUSTOM_UNIT -> {
+                val current = formatCompactDecimal(clampAmount(accumulatedAmount))
+                val target = formatCompactDecimal(habit.targetAmount)
+                val unitSuffix = extractUnitSuffix(habit.targetUnitLabel, habit.incrementUnitLabel)
+                if (unitSuffix.isNotEmpty()) "$current/$target $unitSuffix" else "$current/$target"
+            }
+        }
+    }
+
+    fun formatWidgetDayLabel(streakDays: Int, isCompletedToday: Boolean): String {
+        val currentDayNumber = if (isCompletedToday) {
+            streakDays.coerceAtLeast(1)
+        } else {
+            streakDays.coerceAtLeast(0) + 1
+        }
+        return "Dia $currentDayNumber"
+    }
+
+    fun formatCompactIncrementHint(habit: Habit): String {
+        return when (habit.completionType) {
+            CompletionType.BOOLEAN -> "Sim"
+            CompletionType.COUNT_PER_DAY, CompletionType.CUSTOM_UNIT -> formatIncrementButtonLabel(habit)
+        }
+    }
+
     private fun extractUnitSuffix(targetUnitLabel: String, incrementUnitLabel: String): String {
         val cleanedTarget = targetUnitLabel.trim()
         val withoutLeadingNumber = cleanedTarget
@@ -157,6 +244,20 @@ object HabitCompletionCalculator {
             value.toString()
         }
     }
+
+    private fun formatCompactDecimal(value: Double): String {
+        if (isWholeNumber(value)) {
+            return floor(value + EPSILON).toLong().toString()
+        }
+        val rounded = kotlin.math.round(value * 100.0) / 100.0
+        return if (isWholeNumber(rounded)) {
+            floor(rounded + EPSILON).toLong().toString()
+        } else {
+            rounded.toString()
+        }
+    }
+
+    private fun isApproximatelyOne(value: Double): Boolean = abs(value - 1.0) < EPSILON
 
     private fun isWholeNumber(value: Double): Boolean =
         abs(value - kotlin.math.round(value)) < EPSILON
