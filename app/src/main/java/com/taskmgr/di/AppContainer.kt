@@ -7,6 +7,7 @@ import com.taskmgr.data.repository.HabitRepositoryImpl
 import com.taskmgr.data.repository.MomentRepositoryImpl
 import com.taskmgr.data.repository.TaskRepositoryImpl
 import com.taskmgr.data.sync.AndroidCalendarSyncManager
+import com.taskmgr.scheduler.AutoSnoozeStore
 import com.taskmgr.scheduler.FullScreenAlertDispatcherImpl
 import com.taskmgr.scheduler.ReminderSchedulerImpl
 import com.taskmgr.scheduler.VibrationController
@@ -24,6 +25,10 @@ class AppContainer(context: Context) {
         VibrationController(appContext)
     }
 
+    val autoSnoozeStore: AutoSnoozeStore by lazy {
+        AutoSnoozeStore(appContext)
+    }
+
     val alertDispatcher: FullScreenAlertDispatcherImpl by lazy {
         FullScreenAlertDispatcherImpl(appContext, vibrationController)
     }
@@ -34,7 +39,8 @@ class AppContainer(context: Context) {
             momentDao = database.momentDao(),
             taskDao = database.taskDao(),
             habitDao = database.habitDao(),
-            habitLogDao = database.habitLogDao()
+            habitLogDao = database.habitLogDao(),
+            autoSnoozeStore = autoSnoozeStore
         )
     }
 
@@ -58,7 +64,10 @@ class AppContainer(context: Context) {
             momentDao = database.momentDao(),
             schedulerProvider = { reminderScheduler },
             alertDispatcherProvider = { alertDispatcher },
-            onTasksChanged = { CalendarWidgetUpdater.requestUpdateAll(appContext) }
+            onTasksChanged = { CalendarWidgetUpdater.requestUpdateAll(appContext) },
+            onUserInteracted = { taskId ->
+                autoSnoozeStore.resetUserInteracted(com.taskmgr.domain.model.ReminderItemType.TASK, taskId)
+            }
         )
     }
 
@@ -68,7 +77,10 @@ class AppContainer(context: Context) {
             habitLogDao = database.habitLogDao(),
             schedulerProvider = { reminderScheduler },
             alertDispatcherProvider = { alertDispatcher },
-            onHabitsChanged = { HabitWidgetUpdater.requestUpdateAll(appContext) }
+            onHabitsChanged = { HabitWidgetUpdater.requestUpdateAll(appContext) },
+            onUserInteracted = { habitId ->
+                autoSnoozeStore.resetUserInteracted(com.taskmgr.domain.model.ReminderItemType.HABIT, habitId)
+            }
         )
     }
 

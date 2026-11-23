@@ -1,6 +1,7 @@
 package com.taskmgr.scheduler
 
 import android.annotation.SuppressLint
+import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -14,6 +15,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.jovij.taskmgr.R
 import com.taskmgr.domain.contract.FullScreenAlertDispatcher
+import com.taskmgr.domain.logic.AutoSnoozePolicy
 import com.taskmgr.domain.model.FullScreenReminderPayload
 import com.taskmgr.domain.model.ReminderItemType
 import com.taskmgr.ui.fullscreen.FullScreenReminderActivity
@@ -25,6 +27,9 @@ class FullScreenAlertDispatcherImpl(
 
     private val notificationManager: NotificationManager
         get() = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+    private val alarmManager: AlarmManager
+        get() = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
     fun ensureNotificationChannels() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -110,6 +115,7 @@ class FullScreenAlertDispatcherImpl(
             .setContentIntent(fullScreenPendingIntent)
             .setAutoCancel(true)
             .setOngoing(false)
+            .setTimeoutAfter(AutoSnoozePolicy.RING_TIMEOUT_MILLIS)
 
         if (aggressiveFullScreen) {
             builder.setFullScreenIntent(fullScreenPendingIntent, true)
@@ -123,6 +129,11 @@ class FullScreenAlertDispatcherImpl(
             }
         }
 
+        // Schedule exact 3-minute timeout alarm so that even if FullScreenReminderActivity is not
+        // visible (e.g. standard notification or background launch blocked), vibration stops and
+        // exponential auto-snooze (5m, 10m, 20m...) is applied after 3 minutes of no interaction.
+        scheduleRingTimeoutAlarm(payload)
+
         // Launch full-screen activity directly in foreground even while user is using the phone
         // (requires SYSTEM_ALERT_WINDOW on Android 10+ / MIUI background pop-up permission on Xiaomi).
         if (aggressiveFullScreen) {
@@ -132,7 +143,65 @@ class FullScreenAlertDispatcherImpl(
         }
     }
 
+    private fun scheduleRingTimeoutAlarm(payload: FullScreenReminderPayload) {
+        val timeoutIntent = buildRingTimeoutPendingIntent(
+            itemType = payload.itemType,
+            itemId = payload.itemId,
+            epochDay = payload.epochDay,
+            flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        ) ?: return
+        val timeoutAtMillis = System.currentTimeMillis() + AutoSnoozePolicy.RING_TIMEOUT_MILLIS
+
+        if (PermissionHelper.canScheduleExactAlarms(context)) {
+            alarmManager.setExactAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                timeoutAtMillis,
+                timeoutIntent
+            )
+        } else {
+            alarmManager.setAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                timeoutAtMillis,
+                timeoutIntent
+            )
+        }
+    }
+
+    fun cancelRingTimeoutAlarm(itemType: ReminderItemType, itemId: Long) {
+        val pending = buildRingTimeoutPendingIntent(
+            itemType = itemType,
+            itemId = itemId,
+            epochDay = 0L,
+            flags = PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+        )
+        if (pending != null) {
+            alarmManager.cancel(pending)
+            pending.cancel()
+        }
+    }
+
+    private fun buildRingTimeoutPendingIntent(
+        itemType: ReminderItemType,
+        itemId: Long,
+        epochDay: Long,
+        flags: Int
+    ): PendingIntent? {
+        val intent = Intent(context, ReminderAlarmReceiver::class.java).apply {
+            action = ReminderAlarmReceiver.ACTION_RING_TIMEOUT
+            putExtra(ReminderAlarmReceiver.EXTRA_ITEM_TYPE, itemType.name)
+            putExtra(ReminderAlarmReceiver.EXTRA_ITEM_ID, itemId)
+            putExtra(ReminderAlarmReceiver.EXTRA_EPOCH_DAY, epochDay)
+        }
+        return PendingIntent.getBroadcast(
+            context,
+            timeoutRequestCodeFor(itemType, itemId),
+            intent,
+            flags
+        )
+    }
+
     fun cancelStatusBarNotification(itemType: ReminderItemType, itemId: Long) {
+        cancelRingTimeoutAlarm(itemType, itemId)
         notificationManager.cancel(notificationIdFor(itemType, itemId))
     }
 
@@ -156,6 +225,11 @@ class FullScreenAlertDispatcherImpl(
 
         fun notificationIdFor(itemType: ReminderItemType, itemId: Long): Int {
             val prefix = if (itemType == ReminderItemType.TASK) 100_000 else 200_000
+            return prefix + (itemId.toInt() and 0xFFFF)
+        }
+
+        private fun timeoutRequestCodeFor(itemType: ReminderItemType, itemId: Long): Int {
+            val prefix = if (itemType == ReminderItemType.TASK) 300_000 else 400_000
             return prefix + (itemId.toInt() and 0xFFFF)
         }
     }

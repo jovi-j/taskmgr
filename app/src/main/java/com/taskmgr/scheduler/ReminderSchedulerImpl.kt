@@ -22,6 +22,7 @@ class ReminderSchedulerImpl(
     private val taskDao: TaskDao,
     private val habitDao: HabitDao,
     private val habitLogDao: HabitLogDao,
+    private val autoSnoozeStore: AutoSnoozeStore? = null,
     private val zoneIdProvider: () -> ZoneId = { ZoneId.systemDefault() }
 ) : ReminderScheduler {
 
@@ -34,12 +35,17 @@ class ReminderSchedulerImpl(
             cancelTaskReminders(taskId)
             return
         }
+        val nowMillis = System.currentTimeMillis()
+        val zoneId = zoneIdProvider()
+        val todayEpochDay = Instant.ofEpochMilli(nowMillis).atZone(zoneId).toLocalDate().toEpochDay()
+        val skipToday = autoSnoozeStore?.isTaskDismissedForDay(task.id, todayEpochDay) == true
         val moment = task.momentId?.let { momentDao.getById(it)?.toDomain() }
         val spec = NextAlarmCalculator.calculateNextForTask(
             task = task,
             moment = moment,
-            nowEpochMillis = System.currentTimeMillis(),
-            zoneId = zoneIdProvider()
+            nowEpochMillis = nowMillis,
+            zoneId = zoneId,
+            skipTodayEpochDay = skipToday
         )
         if (spec == null) {
             cancelTaskReminders(taskId)

@@ -22,7 +22,8 @@ object NextAlarmCalculator {
         task: Task,
         moment: Moment?,
         nowEpochMillis: Long,
-        zoneId: ZoneId
+        zoneId: ZoneId,
+        skipTodayEpochDay: Boolean = false
     ): ScheduledAlarmSpec? {
         // INV-01: Completed or unscheduled tasks never trigger alarms
         if (task.isCompleted || !task.hasDate) return null
@@ -33,16 +34,17 @@ object NextAlarmCalculator {
         } else {
             Long.MAX_VALUE
         }
+        val todayEpochDay = Instant.ofEpochMilli(nowEpochMillis).atZone(zoneId).toLocalDate().toEpochDay()
         if (snoozeMillis != null && snoozeMillis > nowEpochMillis) {
             val targetDay = Instant.ofEpochMilli(snoozeMillis).atZone(zoneId).toLocalDate().toEpochDay()
-            if (targetDay <= effectiveEndDay) {
+            if (targetDay <= effectiveEndDay && (!skipTodayEpochDay || targetDay > todayEpochDay)) {
                 return ScheduledAlarmSpec(snoozeMillis, targetDay, isAdvanceReminder = false)
             }
-            return null
+            if (targetDay > effectiveEndDay) return null
         }
 
-        val todayEpochDay = Instant.ofEpochMilli(nowEpochMillis).atZone(zoneId).toLocalDate().toEpochDay()
-        val firstDay = maxOf(todayEpochDay, task.startEpochDay)
+        val minAllowedDay = if (skipTodayEpochDay) todayEpochDay + 1L else todayEpochDay
+        val firstDay = maxOf(minAllowedDay, task.startEpochDay)
         if (firstDay > effectiveEndDay) return null
 
         val searchHorizonEndDay = minOf(effectiveEndDay, firstDay + 14L)
@@ -116,7 +118,7 @@ object NextAlarmCalculator {
                 nowEpochMillis = nowEpochMillis,
                 zoneId = zoneId,
                 allowedEpochDaysMask = task.activeDaysMask,
-                minStartEpochDay = task.startEpochDay,
+                minStartEpochDay = firstDay,
                 maxEndEpochDay = effectiveEndDay,
                 overrideIntervalMinutes = if (scheduledMin == null) task.repeatIntervalMinutes else null
             )

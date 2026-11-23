@@ -112,12 +112,14 @@ class FullScreenReminderActivity : ComponentActivity() {
     private var currentItemType: ReminderItemType = ReminderItemType.TASK
     private var currentItemId: Long = -1L
     private var payloadState by mutableStateOf<FullScreenReminderPayload?>(null)
+    private var closedByTimeoutOrSystemBroadcast: Boolean = false
 
     private val dismissReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             val typeStr = intent.getStringExtra(FullScreenAlertDispatcherImpl.EXTRA_ITEM_TYPE) ?: return
             val id = intent.getLongExtra(FullScreenAlertDispatcherImpl.EXTRA_ITEM_ID, -1L)
             if (typeStr == currentItemType.name && id == currentItemId) {
+                closedByTimeoutOrSystemBroadcast = true
                 finishAndRemoveTaskSafely()
             }
         }
@@ -129,6 +131,7 @@ class FullScreenReminderActivity : ComponentActivity() {
         val newPayload = extractPayload(intent)
         currentItemType = newPayload.itemType
         currentItemId = newPayload.itemId
+        closedByTimeoutOrSystemBroadcast = false
         payloadState = newPayload
     }
 
@@ -143,6 +146,7 @@ class FullScreenReminderActivity : ComponentActivity() {
         val initialPayload = extractPayload(intent)
         currentItemType = initialPayload.itemType
         currentItemId = initialPayload.itemId
+        closedByTimeoutOrSystemBroadcast = false
         payloadState = initialPayload
 
         ContextCompat.registerReceiver(
@@ -287,10 +291,23 @@ class FullScreenReminderActivity : ComponentActivity() {
                 }
             }
 
+            LaunchedEffect(activePayload) {
+                kotlinx.coroutines.delay(com.taskmgr.domain.logic.AutoSnoozePolicy.RING_TIMEOUT_MILLIS)
+                closedByTimeoutOrSystemBroadcast = true
+                com.taskmgr.scheduler.ReminderAlarmReceiver.handleUnansweredRingTimeout(
+                    container = container,
+                    itemType = activePayload.itemType,
+                    itemId = activePayload.itemId,
+                    epochDay = activePayload.epochDay
+                )
+                finishAndRemoveTaskSafely()
+            }
+
             TaskmgrTheme(darkTheme = true, dynamicColor = false) {
                 FullScreenReminderScreen(
                     uiState = uiState,
                     onPrimaryAction = {
+                        container.autoSnoozeStore.resetUserInteracted(uiState.itemType, uiState.itemId)
                         container.vibrationController.cancel()
                         container.alertDispatcher.cancelStatusBarNotification(uiState.itemType, uiState.itemId)
                         scope.launch {
@@ -315,6 +332,7 @@ class FullScreenReminderActivity : ComponentActivity() {
                         }
                     },
                     onSnooze = { option ->
+                        container.autoSnoozeStore.resetUserInteracted(uiState.itemType, uiState.itemId)
                         container.vibrationController.cancel()
                         container.alertDispatcher.cancelStatusBarNotification(uiState.itemType, uiState.itemId)
                         scope.launch {
@@ -336,6 +354,7 @@ class FullScreenReminderActivity : ComponentActivity() {
                         }
                     },
                     onDismissScreen = {
+                        container.autoSnoozeStore.resetUserInteracted(uiState.itemType, uiState.itemId)
                         container.vibrationController.cancel()
                         container.alertDispatcher.cancelStatusBarNotification(uiState.itemType, uiState.itemId)
                         finishAndRemoveTaskSafely()
@@ -350,6 +369,9 @@ class FullScreenReminderActivity : ComponentActivity() {
             val container = (application as TaskMgrApplication).container
             container.vibrationController.cancel()
             container.alertDispatcher.cancelStatusBarNotification(currentItemType, currentItemId)
+            if (isFinishing && !closedByTimeoutOrSystemBroadcast) {
+                container.autoSnoozeStore.resetUserInteracted(currentItemType, currentItemId)
+            }
         }
         runCatching { unregisterReceiver(dismissReceiver) }
         super.onDestroy()

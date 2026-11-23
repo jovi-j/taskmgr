@@ -72,7 +72,8 @@ class TaskRepositoryImpl(
     private val schedulerProvider: () -> ReminderScheduler,
     private val alertDispatcherProvider: () -> FullScreenAlertDispatcher,
     private val zoneIdProvider: () -> ZoneId = { ZoneId.systemDefault() },
-    private val onTasksChanged: () -> Unit = {}
+    private val onTasksChanged: () -> Unit = {},
+    private val onUserInteracted: (Long) -> Unit = {}
 ) : TaskRepository {
 
     override fun observeTasksForDay(epochDay: Long): Flow<List<Task>> =
@@ -109,6 +110,7 @@ class TaskRepositoryImpl(
         val existing = if (normalizedTask.id != 0L) taskDao.getById(normalizedTask.id) else null
         val rowId = taskDao.upsert(normalizedTask.toEntity(completedAtEpochMillis = existing?.completedAtEpochMillis))
         val finalId = if (normalizedTask.id != 0L) normalizedTask.id else rowId
+        onUserInteracted(finalId)
         if (normalizedTask.isCompleted || !normalizedTask.hasDate) {
             schedulerProvider().cancelTaskReminders(finalId)
             if (normalizedTask.isCompleted) {
@@ -122,6 +124,7 @@ class TaskRepositoryImpl(
     }
 
     override suspend fun setCompleted(taskId: Long, completed: Boolean, completedAtEpochMillis: Long?) {
+        onUserInteracted(taskId)
         taskDao.setCompleted(taskId, completed, if (completed) completedAtEpochMillis else null)
         if (completed) {
             schedulerProvider().cancelTaskReminders(taskId)
@@ -133,6 +136,7 @@ class TaskRepositoryImpl(
     }
 
     override suspend fun snooze(taskId: Long, option: SnoozeOption, nowEpochMillis: Long) {
+        onUserInteracted(taskId)
         val current = taskDao.getById(taskId)?.toDomain() ?: return
         if (current.isCompleted) return
         val moment = current.momentId?.let { momentDao.getById(it)?.toDomain() }
@@ -150,6 +154,7 @@ class TaskRepositoryImpl(
     }
 
     override suspend fun delete(taskId: Long) {
+        onUserInteracted(taskId)
         schedulerProvider().cancelTaskReminders(taskId)
         alertDispatcherProvider().dismissReminder(ReminderItemType.TASK, taskId)
         taskDao.deleteById(taskId)
@@ -162,7 +167,8 @@ class HabitRepositoryImpl(
     private val habitLogDao: HabitLogDao,
     private val schedulerProvider: () -> ReminderScheduler,
     private val alertDispatcherProvider: () -> FullScreenAlertDispatcher,
-    private val onHabitsChanged: () -> Unit = {}
+    private val onHabitsChanged: () -> Unit = {},
+    private val onUserInteracted: (Long) -> Unit = {}
 ) : HabitRepository {
 
     override fun observeHabits(): Flow<List<Habit>> =
@@ -186,6 +192,7 @@ class HabitRepositoryImpl(
     override suspend fun upsertHabit(habit: Habit): Long {
         val rowId = habitDao.upsert(habit.toEntity())
         val finalId = if (habit.id != 0L) habit.id else rowId
+        onUserInteracted(finalId)
         val todayEpochDay = java.time.LocalDate.now().toEpochDay()
         if (habit.isActive) {
             schedulerProvider().scheduleNextForHabit(finalId, todayEpochDay)
@@ -197,6 +204,7 @@ class HabitRepositoryImpl(
     }
 
     override suspend fun incrementHabit(habitId: Long, epochDay: Long, nowEpochMillis: Long): HabitLog {
+        onUserInteracted(habitId)
         val habit = habitDao.getById(habitId)?.toDomain()
             ?: error("Habit $habitId not found")
         val existing = habitLogDao.getLog(habitId, epochDay)?.toDomain()
@@ -223,6 +231,7 @@ class HabitRepositoryImpl(
         dismissedForDay: Boolean,
         nowEpochMillis: Long
     ): HabitLog {
+        onUserInteracted(habitId)
         val habit = habitDao.getById(habitId)?.toDomain()
             ?: error("Habit $habitId not found")
         val updated = ReminderStateMachine.reduceHabitLogOnManualEdit(
@@ -248,6 +257,7 @@ class HabitRepositoryImpl(
         option: SnoozeOption,
         nowEpochMillis: Long
     ): HabitLog {
+        onUserInteracted(habitId)
         val habit = habitDao.getById(habitId)?.toDomain()
             ?: error("Habit $habitId not found")
         val existing = habitLogDao.getLog(habitId, epochDay)?.toDomain()
@@ -269,6 +279,7 @@ class HabitRepositoryImpl(
     }
 
     override suspend fun deleteHabit(habitId: Long) {
+        onUserInteracted(habitId)
         val todayEpochDay = java.time.LocalDate.now().toEpochDay()
         schedulerProvider().cancelHabitRemindersForDay(habitId, todayEpochDay)
         alertDispatcherProvider().dismissReminder(ReminderItemType.HABIT, habitId)

@@ -1,7 +1,7 @@
 # specs/02-state-machines.spec.md
 version: 1.4.0
 status: implemented
-system: taskmgr (Android v0.3.2)
+system: taskmgr (Android v0.3.3)
 
 ## 1. Máquina de Estados — `Task` (por ciclo/instância)
 Estados:

@@ -53,6 +53,7 @@
             android:exported="false">
             <intent-filter>
                 <action android:name="com.taskmgr.ACTION_TRIGGER_REMINDER" />
+                <action android:name="com.taskmgr.ACTION_RING_TIMEOUT" />
             </intent-filter>
         </receiver>
 
